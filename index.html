@@ -6589,10 +6589,904 @@
     // ========================================
     // Section 7: Platform Deep Dive
     // ========================================
+
+    const platformTypes = {
+      'Sony': ['PS', 'PS2', 'PS3', 'PS4', 'PSP', 'PSV'],
+      'Nintendo': ['NES', 'SNES', 'N64', 'GC', 'Wii', 'WiiU', 'GB', 'GBA', 'DS', '3DS'],
+      'Microsoft': ['XB', 'X360', 'XOne'],
+      'PC': ['PC'],
+      'Sega': ['GEN', 'SAT', 'DC', 'GG', 'SCD']
+    };
+
+    const platformCompanyColors = {
+      'Sony': colors.cyan,
+      'Nintendo': colors.coral,
+      'Microsoft': colors.lime,
+      'PC': colors.amber,
+      'Sega': colors.emerald
+    };
+
+    function getPlatformCompany(platform) {
+      for (const [company, platforms] of Object.entries(platformTypes)) {
+        if (platforms.includes(platform)) return company;
+      }
+      return 'Other';
+    }
+
     function initPlatformsSection() {
-      // Placeholder - charts will be implemented in Milestone 8
-      document.querySelectorAll('#platforms .loading').forEach(el => {
-        el.textContent = 'Coming soon...';
+      createPlatformLifespan();
+      createPlatformLifecycle();
+      createPlatformDensity();
+      createPlatformExclusive();
+      createPlatformGenres();
+      createPlatformTransitions();
+      createPlatformQuality();
+      createPlatformWars();
+    }
+
+    function createPlatformLifespan() {
+      const container = document.getElementById('chart-platform-lifespan');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 30, bottom: 50, left: 60 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Calculate lifespan for top platforms
+      const platformData = d3.rollup(state.data,
+        v => ({
+          firstYear: d3.min(v.filter(d => d.year), d => d.year),
+          lastYear: d3.max(v.filter(d => d.year), d => d.year),
+          totalSales: d3.sum(v, d => d.globalSales),
+          gameCount: v.length
+        }),
+        d => d.platform
+      );
+
+      const topPlatforms = Array.from(platformData)
+        .filter(([_, data]) => data.firstYear && data.lastYear)
+        .sort((a, b) => b[1].totalSales - a[1].totalSales)
+        .slice(0, 15)
+        .map(([platform, data]) => ({
+          platform,
+          ...data,
+          company: getPlatformCompany(platform)
+        }));
+
+      const x = d3.scaleLinear()
+        .domain([d3.min(topPlatforms, d => d.firstYear) - 1, d3.max(topPlatforms, d => d.lastYear) + 1])
+        .range([0, innerWidth]);
+
+      const y = d3.scaleBand()
+        .domain(topPlatforms.map(d => d.platform))
+        .range([0, innerHeight])
+        .padding(0.3);
+
+      // Draw lifespan bars
+      topPlatforms.forEach(d => {
+        g.append('rect')
+          .attr('x', x(d.firstYear))
+          .attr('y', y(d.platform))
+          .attr('width', x(d.lastYear) - x(d.firstYear))
+          .attr('height', y.bandwidth())
+          .attr('fill', platformCompanyColors[d.company] || colors.textTertiary)
+          .attr('opacity', 0.8)
+          .attr('rx', 3);
+
+        // Duration label
+        g.append('text')
+          .attr('x', x(d.lastYear) + 5)
+          .attr('y', y(d.platform) + y.bandwidth() / 2)
+          .attr('dominant-baseline', 'middle')
+          .attr('fill', colors.textTertiary)
+          .attr('font-size', '9px')
+          .text(`${d.lastYear - d.firstYear}y`);
+      });
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '9px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).tickFormat(d3.format('d')).ticks(10))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 12})`);
+
+      const companies = ['Sony', 'Nintendo', 'Microsoft', 'PC'];
+      const legendWidth = companies.length * 70;
+      const startX = -legendWidth / 2;
+
+      companies.forEach((c, i) => {
+        legend.append('circle')
+          .attr('cx', startX + i * 70)
+          .attr('cy', 0)
+          .attr('r', 4)
+          .attr('fill', platformCompanyColors[c]);
+
+        legend.append('text')
+          .attr('x', startX + i * 70 + 8)
+          .attr('y', 4)
+          .attr('fill', colors.textSecondary)
+          .attr('font-size', '9px')
+          .text(c);
+      });
+    }
+
+    function createPlatformLifecycle() {
+      const container = document.getElementById('chart-platform-lifecycle');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 100, bottom: 50, left: 50 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Top 8 platforms by sales
+      const topPlatforms = ['PS2', 'X360', 'PS3', 'Wii', 'DS', 'PS', 'GBA', 'PS4'];
+      const platformColors = [colors.cyan, colors.lime, colors.cyan, colors.coral, colors.coral, colors.cyan, colors.coral, colors.cyan];
+
+      const allYears = state.data.filter(d => d.year).map(d => d.year);
+      const yearRange = d3.range(d3.min(allYears), d3.max(allYears) + 1);
+
+      // Calculate yearly sales for each platform
+      const platformYearData = topPlatforms.map((platform, idx) => {
+        const yearSales = yearRange.map(year => {
+          const sales = d3.sum(state.data.filter(d => d.platform === platform && d.year === year), d => d.globalSales);
+          return { year, sales };
+        }).filter(d => d.sales > 0);
+        return { platform, data: yearSales, color: platformColors[idx] };
+      });
+
+      const x = d3.scaleLinear()
+        .domain(d3.extent(yearRange))
+        .range([0, innerWidth]);
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(platformYearData, p => d3.max(p.data, d => d.sales))])
+        .range([innerHeight, 0]);
+
+      const area = d3.area()
+        .x(d => x(d.year))
+        .y0(innerHeight)
+        .y1(d => y(d.sales))
+        .curve(d3.curveMonotoneX);
+
+      // Draw areas (stacked effect with transparency)
+      platformYearData.forEach(p => {
+        g.append('path')
+          .datum(p.data)
+          .attr('fill', p.color)
+          .attr('opacity', 0.3)
+          .attr('d', area);
+
+        const line = d3.line().x(d => x(d.year)).y(d => y(d.sales)).curve(d3.curveMonotoneX);
+
+        g.append('path')
+          .datum(p.data)
+          .attr('fill', 'none')
+          .attr('stroke', p.color)
+          .attr('stroke-width', 2)
+          .attr('d', line);
+
+        // End label
+        if (p.data.length > 0) {
+          const lastPoint = p.data[p.data.length - 1];
+          g.append('text')
+            .attr('x', innerWidth + 5)
+            .attr('y', y(lastPoint.sales))
+            .attr('fill', p.color)
+            .attr('font-size', '9px')
+            .attr('dominant-baseline', 'middle')
+            .text(p.platform);
+        }
+      });
+
+      // Axes
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).tickFormat(d3.format('d')).ticks(8))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      g.append('g')
+        .call(d3.axisLeft(y).ticks(5).tickFormat(d => d + 'M'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+    }
+
+    function createPlatformDensity() {
+      const container = document.getElementById('chart-platform-density');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 50, right: 30, bottom: 50, left: 60 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const topPlatforms = ['PS2', 'X360', 'PS3', 'Wii', 'DS', 'PS', 'GBA', 'PC'];
+      const years = d3.range(1995, 2017);
+
+      const y = d3.scaleBand()
+        .domain(topPlatforms)
+        .range([0, innerHeight])
+        .padding(0.1);
+
+      const x = d3.scaleBand()
+        .domain(years)
+        .range([0, innerWidth])
+        .padding(0.05);
+
+      const maxCount = d3.max(topPlatforms, p =>
+        d3.max(years, yr => state.data.filter(d => d.platform === p && d.year === yr).length)
+      );
+
+      // Draw heatmap
+      topPlatforms.forEach(platform => {
+        years.forEach(year => {
+          const count = state.data.filter(d => d.platform === platform && d.year === year).length;
+          if (count > 0) {
+            const intensity = count / maxCount;
+            g.append('rect')
+              .attr('x', x(year))
+              .attr('y', y(platform))
+              .attr('width', x.bandwidth())
+              .attr('height', y.bandwidth())
+              .attr('fill', intensity > 0.6 ? colors.lime : intensity > 0.3 ? colors.cyan : colors.amber)
+              .attr('opacity', Math.min(0.9, intensity + 0.2))
+              .attr('rx', 1);
+          }
+        });
+      });
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '9px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${-5})`)
+        .call(d3.axisTop(x).tickValues(years.filter((_, i) => i % 3 === 0)))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '9px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 12})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Color intensity = game release count');
+    }
+
+    function createPlatformExclusive() {
+      const container = document.getElementById('chart-platform-exclusive');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 30, bottom: 50, left: 80 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Find games that appear on multiple platforms (by name)
+      const gameOccurrences = d3.rollup(state.data, v => new Set(v.map(d => d.platform)), d => d.name);
+      const multiPlatformGames = new Set([...gameOccurrences].filter(([_, platforms]) => platforms.size > 1).map(([name]) => name));
+
+      const topPlatforms = ['PS2', 'X360', 'PS3', 'Wii', 'DS', 'PS', 'GBA', 'PC'];
+
+      // Calculate exclusive vs multi-platform sales
+      const platformData = topPlatforms.map(platform => {
+        const platformGames = state.data.filter(d => d.platform === platform);
+        const exclusiveSales = d3.sum(platformGames.filter(d => !multiPlatformGames.has(d.name)), d => d.globalSales);
+        const multiSales = d3.sum(platformGames.filter(d => multiPlatformGames.has(d.name)), d => d.globalSales);
+        return { platform, exclusiveSales, multiSales, company: getPlatformCompany(platform) };
+      });
+
+      const y = d3.scaleBand()
+        .domain(topPlatforms)
+        .range([0, innerHeight])
+        .padding(0.2);
+
+      const x = d3.scaleLinear()
+        .domain([0, d3.max(platformData, d => d.exclusiveSales + d.multiSales)])
+        .range([0, innerWidth]);
+
+      // Draw stacked bars
+      platformData.forEach(d => {
+        // Exclusive
+        g.append('rect')
+          .attr('x', 0)
+          .attr('y', y(d.platform))
+          .attr('width', x(d.exclusiveSales))
+          .attr('height', y.bandwidth())
+          .attr('fill', colors.lime)
+          .attr('opacity', 0.8);
+
+        // Multi-platform
+        g.append('rect')
+          .attr('x', x(d.exclusiveSales))
+          .attr('y', y(d.platform))
+          .attr('width', x(d.multiSales))
+          .attr('height', y.bandwidth())
+          .attr('fill', colors.amber)
+          .attr('opacity', 0.8);
+      });
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '9px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).ticks(5).tickFormat(d => d + 'M'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 12})`);
+
+      [{ label: 'Exclusive', color: colors.lime }, { label: 'Multi-Platform', color: colors.amber }].forEach((item, i) => {
+        const xPos = (i - 0.5) * 100;
+        legend.append('circle')
+          .attr('cx', xPos)
+          .attr('cy', 0)
+          .attr('r', 4)
+          .attr('fill', item.color);
+
+        legend.append('text')
+          .attr('x', xPos + 8)
+          .attr('y', 4)
+          .attr('fill', colors.textSecondary)
+          .attr('font-size', '9px')
+          .text(item.label);
+      });
+    }
+
+    function createPlatformGenres() {
+      const container = document.getElementById('chart-platform-genres');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      // Small multiples: 4 radar charts for top platforms
+      const platforms = ['PS2', 'Wii', 'X360', 'DS'];
+      const platformRadarColors = [colors.cyan, colors.coral, colors.lime, colors.coral];
+      const genres = ['Action', 'Sports', 'Shooter', 'Role-Playing', 'Platform', 'Racing'];
+
+      const chartSize = Math.min(width / 2 - 30, height / 2 - 40);
+      const radius = chartSize / 2 - 20;
+
+      platforms.forEach((platform, idx) => {
+        const col = idx % 2;
+        const row = Math.floor(idx / 2);
+        const centerX = col * (width / 2) + width / 4;
+        const centerY = row * (height / 2 - 10) + (height / 2 - 10) / 2 + 20;
+
+        const g = svg.append('g')
+          .attr('transform', `translate(${centerX},${centerY})`);
+
+        // Calculate genre sales for this platform
+        const platformGames = state.data.filter(d => d.platform === platform);
+        const genreData = genres.map(genre => ({
+          genre,
+          sales: d3.sum(platformGames.filter(d => d.genre === genre), d => d.globalSales)
+        }));
+
+        const maxSales = d3.max(genreData, d => d.sales);
+        const angleSlice = (Math.PI * 2) / genres.length;
+
+        // Draw background circles
+        [0.25, 0.5, 0.75, 1].forEach(level => {
+          const points = genres.map((_, i) => {
+            const angle = i * angleSlice - Math.PI / 2;
+            return [Math.cos(angle) * radius * level, Math.sin(angle) * radius * level];
+          });
+          g.append('polygon')
+            .attr('points', points.map(p => p.join(',')).join(' '))
+            .attr('fill', 'none')
+            .attr('stroke', colors.border)
+            .attr('opacity', 0.3);
+        });
+
+        // Draw axes
+        genres.forEach((genre, i) => {
+          const angle = i * angleSlice - Math.PI / 2;
+          g.append('line')
+            .attr('x1', 0).attr('y1', 0)
+            .attr('x2', Math.cos(angle) * radius)
+            .attr('y2', Math.sin(angle) * radius)
+            .attr('stroke', colors.border)
+            .attr('opacity', 0.3);
+
+          g.append('text')
+            .attr('x', Math.cos(angle) * (radius + 12))
+            .attr('y', Math.sin(angle) * (radius + 12))
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'middle')
+            .attr('fill', colors.textTertiary)
+            .attr('font-size', '8px')
+            .text(genre.substring(0, 4));
+        });
+
+        // Draw data polygon
+        const dataPoints = genreData.map((d, i) => {
+          const angle = i * angleSlice - Math.PI / 2;
+          const r = (d.sales / maxSales) * radius;
+          return [Math.cos(angle) * r, Math.sin(angle) * r];
+        });
+
+        g.append('polygon')
+          .attr('points', dataPoints.map(p => p.join(',')).join(' '))
+          .attr('fill', platformRadarColors[idx])
+          .attr('opacity', 0.3)
+          .attr('stroke', platformRadarColors[idx])
+          .attr('stroke-width', 2);
+
+        // Platform label
+        g.append('text')
+          .attr('y', -radius - 15)
+          .attr('text-anchor', 'middle')
+          .attr('fill', platformRadarColors[idx])
+          .attr('font-size', '11px')
+          .attr('font-weight', '600')
+          .text(platform);
+      });
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 12})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Genre strengths by platform');
+    }
+
+    function createPlatformTransitions() {
+      const container = document.getElementById('chart-platform-transitions');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 20, right: 20, bottom: 50, left: 20 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Define platform generations
+      const gen6 = ['PS2', 'XB', 'GC'];
+      const gen7 = ['PS3', 'X360', 'Wii'];
+
+      const nodes = [
+        ...gen6.map(p => ({ name: p, gen: 6 })),
+        ...gen7.map(p => ({ name: p, gen: 7 }))
+      ];
+
+      const nodeIndex = {};
+      nodes.forEach((n, i) => nodeIndex[n.name] = i);
+
+      // Calculate "transitions" based on shared publishers
+      const links = [];
+      gen6.forEach(p6 => {
+        gen7.forEach(p7 => {
+          const p6Publishers = new Set(state.data.filter(d => d.platform === p6).map(d => d.publisher));
+          const p7Publishers = new Set(state.data.filter(d => d.platform === p7).map(d => d.publisher));
+          const shared = [...p6Publishers].filter(p => p7Publishers.has(p));
+          const value = shared.length;
+          if (value > 10) {
+            links.push({
+              source: nodeIndex[p6],
+              target: nodeIndex[p7],
+              value: value
+            });
+          }
+        });
+      });
+
+      const gen6Color = colors.amber;
+      const gen7Color = colors.lime;
+
+      // Position nodes
+      const leftX = innerWidth * 0.2;
+      const rightX = innerWidth * 0.8;
+
+      nodes.forEach((n, i) => {
+        if (n.gen === 6) {
+          const idx = gen6.indexOf(n.name);
+          n.x = leftX;
+          n.y = (idx + 1) * innerHeight / (gen6.length + 1);
+        } else {
+          const idx = gen7.indexOf(n.name);
+          n.x = rightX;
+          n.y = (idx + 1) * innerHeight / (gen7.length + 1);
+        }
+      });
+
+      // Draw links
+      links.forEach(link => {
+        const source = nodes[link.source];
+        const target = nodes[link.target];
+
+        g.append('path')
+          .attr('d', `M${source.x + 30},${source.y} C${innerWidth / 2},${source.y} ${innerWidth / 2},${target.y} ${target.x - 30},${target.y}`)
+          .attr('fill', 'none')
+          .attr('stroke', gen6Color)
+          .attr('stroke-width', Math.max(1, link.value / 10))
+          .attr('opacity', 0.3);
+      });
+
+      // Draw nodes
+      nodes.forEach(node => {
+        g.append('circle')
+          .attr('cx', node.x)
+          .attr('cy', node.y)
+          .attr('r', 25)
+          .attr('fill', node.gen === 6 ? gen6Color : gen7Color)
+          .attr('opacity', 0.8);
+
+        g.append('text')
+          .attr('x', node.x)
+          .attr('y', node.y + 4)
+          .attr('text-anchor', 'middle')
+          .attr('fill', colors.bg)
+          .attr('font-size', '10px')
+          .attr('font-weight', '600')
+          .text(node.name);
+      });
+
+      // Generation labels
+      g.append('text')
+        .attr('x', leftX)
+        .attr('y', -5)
+        .attr('text-anchor', 'middle')
+        .attr('fill', gen6Color)
+        .attr('font-size', '11px')
+        .text('Gen 6');
+
+      g.append('text')
+        .attr('x', rightX)
+        .attr('y', -5)
+        .attr('text-anchor', 'middle')
+        .attr('fill', gen7Color)
+        .attr('font-size', '11px')
+        .text('Gen 7');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 12})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Line width = shared publishers');
+    }
+
+    function createPlatformQuality() {
+      const container = document.getElementById('chart-platform-quality');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 30, bottom: 50, left: 60 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Calculate game count and avg sales for each platform
+      const platformData = d3.rollup(state.data,
+        v => ({
+          count: v.length,
+          avgSales: d3.mean(v, d => d.globalSales),
+          totalSales: d3.sum(v, d => d.globalSales)
+        }),
+        d => d.platform
+      );
+
+      const topPlatforms = Array.from(platformData)
+        .sort((a, b) => b[1].totalSales - a[1].totalSales)
+        .slice(0, 20)
+        .map(([platform, data]) => ({
+          platform,
+          ...data,
+          company: getPlatformCompany(platform)
+        }));
+
+      const x = d3.scaleLinear()
+        .domain([0, d3.max(topPlatforms, d => d.count) * 1.1])
+        .range([0, innerWidth]);
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(topPlatforms, d => d.avgSales) * 1.1])
+        .range([innerHeight, 0]);
+
+      const size = d3.scaleSqrt()
+        .domain([0, d3.max(topPlatforms, d => d.totalSales)])
+        .range([5, 30]);
+
+      // Draw bubbles
+      topPlatforms.forEach(d => {
+        g.append('circle')
+          .attr('cx', x(d.count))
+          .attr('cy', y(d.avgSales))
+          .attr('r', size(d.totalSales))
+          .attr('fill', platformCompanyColors[d.company] || colors.textTertiary)
+          .attr('opacity', 0.7)
+          .attr('stroke', platformCompanyColors[d.company] || colors.textTertiary)
+          .attr('stroke-width', 1);
+
+        // Label for larger bubbles
+        if (d.totalSales > 200) {
+          g.append('text')
+            .attr('x', x(d.count))
+            .attr('y', y(d.avgSales))
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'middle')
+            .attr('fill', colors.bg)
+            .attr('font-size', '8px')
+            .attr('font-weight', '600')
+            .text(d.platform);
+        }
+      });
+
+      // Axes
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).ticks(6))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      g.append('g')
+        .call(d3.axisLeft(y).ticks(5).tickFormat(d => d.toFixed(1) + 'M'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Axis labels
+      g.append('text')
+        .attr('x', innerWidth / 2)
+        .attr('y', innerHeight + 35)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px')
+        .text('Game Count');
+
+      g.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -innerHeight / 2)
+        .attr('y', -45)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px')
+        .text('Avg Sales (M)');
+    }
+
+    function createPlatformWars() {
+      const container = document.getElementById('chart-platform-wars');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 20, bottom: 50, left: 50 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Major platform launches with approximate years
+      const launches = [
+        { platform: 'PS', year: 1995, company: 'Sony' },
+        { platform: 'N64', year: 1996, company: 'Nintendo' },
+        { platform: 'PS2', year: 2000, company: 'Sony' },
+        { platform: 'XB', year: 2001, company: 'Microsoft' },
+        { platform: 'GC', year: 2001, company: 'Nintendo' },
+        { platform: 'DS', year: 2004, company: 'Nintendo' },
+        { platform: 'PSP', year: 2005, company: 'Sony' },
+        { platform: 'X360', year: 2005, company: 'Microsoft' },
+        { platform: 'Wii', year: 2006, company: 'Nintendo' },
+        { platform: 'PS3', year: 2006, company: 'Sony' },
+        { platform: '3DS', year: 2011, company: 'Nintendo' },
+        { platform: 'WiiU', year: 2012, company: 'Nintendo' },
+        { platform: 'PS4', year: 2013, company: 'Sony' },
+        { platform: 'XOne', year: 2013, company: 'Microsoft' }
+      ];
+
+      // Add total sales to each launch
+      launches.forEach(l => {
+        l.totalSales = d3.sum(state.data.filter(d => d.platform === l.platform), d => d.globalSales);
+      });
+
+      const x = d3.scaleLinear()
+        .domain([1994, 2016])
+        .range([0, innerWidth]);
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(launches, d => d.totalSales) * 1.1])
+        .range([innerHeight, 0]);
+
+      // Draw timeline axis
+      g.append('line')
+        .attr('x1', 0)
+        .attr('x2', innerWidth)
+        .attr('y1', innerHeight)
+        .attr('y2', innerHeight)
+        .attr('stroke', colors.border);
+
+      // Draw platforms
+      launches.forEach(l => {
+        // Vertical line from axis to point
+        g.append('line')
+          .attr('x1', x(l.year))
+          .attr('x2', x(l.year))
+          .attr('y1', innerHeight)
+          .attr('y2', y(l.totalSales))
+          .attr('stroke', platformCompanyColors[l.company])
+          .attr('stroke-dasharray', '2,2')
+          .attr('opacity', 0.5);
+
+        // Bubble
+        const r = Math.sqrt(l.totalSales) / 5 + 5;
+        g.append('circle')
+          .attr('cx', x(l.year))
+          .attr('cy', y(l.totalSales))
+          .attr('r', r)
+          .attr('fill', platformCompanyColors[l.company])
+          .attr('opacity', 0.8);
+
+        // Label
+        g.append('text')
+          .attr('x', x(l.year))
+          .attr('y', y(l.totalSales) - r - 5)
+          .attr('text-anchor', 'middle')
+          .attr('fill', colors.textPrimary)
+          .attr('font-size', '8px')
+          .text(l.platform);
+      });
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).tickFormat(d3.format('d')).ticks(8))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y).ticks(5).tickFormat(d => d + 'M'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 12})`);
+
+      const companies = ['Sony', 'Nintendo', 'Microsoft'];
+      const legendWidth = companies.length * 75;
+      const startX = -legendWidth / 2;
+
+      companies.forEach((c, i) => {
+        legend.append('circle')
+          .attr('cx', startX + i * 75)
+          .attr('cy', 0)
+          .attr('r', 4)
+          .attr('fill', platformCompanyColors[c]);
+
+        legend.append('text')
+          .attr('x', startX + i * 75 + 8)
+          .attr('y', 4)
+          .attr('fill', colors.textSecondary)
+          .attr('font-size', '9px')
+          .text(c);
       });
     }
 
