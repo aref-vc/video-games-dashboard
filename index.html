@@ -557,6 +557,50 @@
           <div class="loading">Loading</div>
         </div>
       </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Regional Preference Index</div>
+            <div class="chart-subtitle">NA vs JP sales by genre</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-diverging-bar">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Regional Champions</div>
+            <div class="chart-subtitle">Top selling game per region</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-symbol-map">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Regional Market Share Evolution</div>
+            <div class="chart-subtitle">How regions contributed over time</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-regional-area">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Franchise Regional Performance</div>
+            <div class="chart-subtitle">Top franchises by region over time</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-franchise-lines">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
     </section>
 
     <!-- Section 3: Business Intelligence -->
@@ -2087,6 +2131,10 @@
       createMarimekko();
       createRadarCharts();
       createCartogram();
+      createDivergingBar();
+      createSymbolMap();
+      createRegionalArea();
+      createFranchiseLines();
     }
 
     function createChordDiagram() {
@@ -2506,6 +2554,499 @@
           .attr('fill', colors.textTertiary)
           .attr('font-size', '9px')
           .text(`#1: ${topGame.name.substring(0, 15)}...`);
+      });
+    }
+
+    function createDivergingBar() {
+      const container = document.getElementById('chart-diverging-bar');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 80, bottom: 60, left: 100 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Calculate preference index: (NA - JP) / (NA + JP) for each genre
+      const genres = [...new Set(state.data.map(d => d.genre))].filter(Boolean);
+
+      const genreData = genres.map(genre => {
+        const genreGames = state.data.filter(d => d.genre === genre);
+        const naSales = d3.sum(genreGames, d => d.naSales);
+        const jpSales = d3.sum(genreGames, d => d.jpSales);
+        const total = naSales + jpSales;
+        const index = total > 0 ? (naSales - jpSales) / total : 0;
+        return { genre, naSales, jpSales, index };
+      }).sort((a, b) => b.index - a.index);
+
+      const y = d3.scaleBand()
+        .domain(genreData.map(d => d.genre))
+        .range([0, innerHeight])
+        .padding(0.2);
+
+      const x = d3.scaleLinear()
+        .domain([-1, 1])
+        .range([0, innerWidth]);
+
+      // Center line
+      g.append('line')
+        .attr('x1', x(0))
+        .attr('x2', x(0))
+        .attr('y1', 0)
+        .attr('y2', innerHeight)
+        .attr('stroke', colors.border)
+        .attr('stroke-width', 1);
+
+      // Bars
+      g.selectAll('.bar')
+        .data(genreData)
+        .join('rect')
+        .attr('class', 'bar')
+        .attr('y', d => y(d.genre))
+        .attr('x', d => d.index >= 0 ? x(0) : x(d.index))
+        .attr('width', d => Math.abs(x(d.index) - x(0)))
+        .attr('height', y.bandwidth())
+        .attr('fill', d => d.index >= 0 ? colors.lime : colors.coral)
+        .attr('opacity', 0.8);
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).ticks(5).tickFormat(d => d === 0 ? '0' : d > 0 ? `+${d.toFixed(1)}` : d.toFixed(1)))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Labels
+      g.append('text')
+        .attr('x', x(-0.5))
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.coral)
+        .attr('font-size', '11px')
+        .attr('font-weight', '600')
+        .text('← Japan');
+
+      g.append('text')
+        .attr('x', x(0.5))
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.lime)
+        .attr('font-size', '11px')
+        .attr('font-weight', '600')
+        .text('North America →');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 20})`);
+
+      const legendItems = [
+        { label: 'NA Preference', color: colors.lime },
+        { label: 'JP Preference', color: colors.coral }
+      ];
+
+      legendItems.forEach((item, i) => {
+        const xPos = (i - 0.5) * 120;
+        legend.append('circle')
+          .attr('cx', xPos)
+          .attr('cy', 0)
+          .attr('r', 5)
+          .attr('fill', item.color);
+
+        legend.append('text')
+          .attr('x', xPos + 10)
+          .attr('y', 4)
+          .attr('fill', colors.textSecondary)
+          .attr('font-size', '10px')
+          .text(item.label);
+      });
+    }
+
+    function createSymbolMap() {
+      const container = document.getElementById('chart-symbol-map');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      // Define regions with positions on a stylized map
+      const regions = [
+        { name: 'North America', key: 'naSales', x: width * 0.22, y: height * 0.35, color: colors.lime },
+        { name: 'Europe', key: 'euSales', x: width * 0.52, y: height * 0.32, color: colors.cyan },
+        { name: 'Japan', key: 'jpSales', x: width * 0.78, y: height * 0.38, color: colors.coral },
+        { name: 'Other', key: 'otherSales', x: width * 0.52, y: height * 0.65, color: colors.amber }
+      ];
+
+      // Find top game for each region
+      regions.forEach(r => {
+        const sortedByRegion = [...state.data].sort((a, b) => b[r.key] - a[r.key]);
+        r.topGame = sortedByRegion[0];
+        r.sales = r.topGame[r.key];
+      });
+
+      const maxSales = d3.max(regions, d => d.sales);
+      const radiusScale = d3.scaleSqrt()
+        .domain([0, maxSales])
+        .range([25, 55]);
+
+      // Draw connections
+      svg.selectAll('.connection')
+        .data(regions.slice(1))
+        .join('line')
+        .attr('class', 'connection')
+        .attr('x1', regions[0].x)
+        .attr('y1', regions[0].y)
+        .attr('x2', d => d.x)
+        .attr('y2', d => d.y)
+        .attr('stroke', colors.border)
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '3,3')
+        .attr('opacity', 0.3);
+
+      // Draw region symbols
+      regions.forEach(region => {
+        const g = svg.append('g')
+          .attr('transform', `translate(${region.x},${region.y})`);
+
+        // Background circle
+        g.append('circle')
+          .attr('r', radiusScale(region.sales))
+          .attr('fill', region.color)
+          .attr('opacity', 0.2)
+          .attr('stroke', region.color)
+          .attr('stroke-width', 2);
+
+        // Inner circle
+        g.append('circle')
+          .attr('r', radiusScale(region.sales) * 0.6)
+          .attr('fill', region.color)
+          .attr('opacity', 0.4);
+
+        // Region label
+        g.append('text')
+          .attr('text-anchor', 'middle')
+          .attr('dy', -radiusScale(region.sales) - 8)
+          .attr('fill', colors.textPrimary)
+          .attr('font-size', '11px')
+          .attr('font-weight', '600')
+          .text(region.name);
+
+        // Game name
+        const gameName = region.topGame.name.length > 18
+          ? region.topGame.name.substring(0, 16) + '...'
+          : region.topGame.name;
+
+        g.append('text')
+          .attr('text-anchor', 'middle')
+          .attr('dy', '0em')
+          .attr('fill', colors.textPrimary)
+          .attr('font-size', '9px')
+          .attr('font-weight', '600')
+          .text(gameName);
+
+        // Sales value
+        g.append('text')
+          .attr('text-anchor', 'middle')
+          .attr('dy', '1.3em')
+          .attr('fill', region.color)
+          .attr('font-size', '12px')
+          .attr('font-weight', '700')
+          .text(`${region.sales.toFixed(1)}M`);
+      });
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 20})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Bubble size = regional sales of top game');
+    }
+
+    function createRegionalArea() {
+      const container = document.getElementById('chart-regional-area');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 30, bottom: 60, left: 50 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Aggregate by year and region (normalized)
+      const years = [...new Set(state.data.map(d => d.year))].filter(y => y >= 1990 && y <= 2016).sort((a, b) => a - b);
+      const regions = ['naSales', 'euSales', 'jpSales', 'otherSales'];
+      const regionLabels = { naSales: 'North America', euSales: 'Europe', jpSales: 'Japan', otherSales: 'Other' };
+      const regionColors = { naSales: colors.lime, euSales: colors.cyan, jpSales: colors.coral, otherSales: colors.amber };
+
+      const yearData = years.map(year => {
+        const yearGames = state.data.filter(d => d.year === year);
+        const totals = {};
+        regions.forEach(r => {
+          totals[r] = d3.sum(yearGames, d => d[r]);
+        });
+        const total = d3.sum(Object.values(totals));
+        // Normalize to percentages
+        regions.forEach(r => {
+          totals[r] = total > 0 ? (totals[r] / total) * 100 : 0;
+        });
+        return { year, ...totals };
+      });
+
+      const stack = d3.stack()
+        .keys(regions)
+        .order(d3.stackOrderNone)
+        .offset(d3.stackOffsetNone);
+
+      const series = stack(yearData);
+
+      const x = d3.scaleLinear()
+        .domain(d3.extent(years))
+        .range([0, innerWidth]);
+
+      const y = d3.scaleLinear()
+        .domain([0, 100])
+        .range([innerHeight, 0]);
+
+      const area = d3.area()
+        .x(d => x(d.data.year))
+        .y0(d => y(d[0]))
+        .y1(d => y(d[1]))
+        .curve(d3.curveMonotoneX);
+
+      // Draw areas
+      g.selectAll('.area')
+        .data(series)
+        .join('path')
+        .attr('class', 'area')
+        .attr('d', area)
+        .attr('fill', d => regionColors[d.key])
+        .attr('opacity', 0.7);
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).tickFormat(d3.format('d')).ticks(8))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y).ticks(5).tickFormat(d => d + '%'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 20})`);
+
+      const legendItems = regions.map(r => ({ label: regionLabels[r], color: regionColors[r] }));
+      const legendWidth = legendItems.length * 100;
+      const startX = -legendWidth / 2;
+
+      legendItems.forEach((item, i) => {
+        const xPos = startX + i * 100;
+        legend.append('circle')
+          .attr('cx', xPos)
+          .attr('cy', 0)
+          .attr('r', 5)
+          .attr('fill', item.color);
+
+        legend.append('text')
+          .attr('x', xPos + 10)
+          .attr('y', 4)
+          .attr('fill', colors.textSecondary)
+          .attr('font-size', '10px')
+          .text(item.label);
+      });
+    }
+
+    function createFranchiseLines() {
+      const container = document.getElementById('chart-franchise-lines');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 25, right: 15, bottom: 50, left: 40 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      // Franchise detection patterns
+      const franchisePatterns = {
+        'Mario': /mario/i,
+        'Pokemon': /pokemon|pokémon/i,
+        'Call of Duty': /call of duty/i,
+        'FIFA': /^fifa/i,
+        'GTA': /grand theft auto|^gta/i
+      };
+
+      // Identify franchises
+      const dataWithFranchise = state.data.map(d => {
+        let franchise = 'Other';
+        for (const [name, pattern] of Object.entries(franchisePatterns)) {
+          if (pattern.test(d.name)) {
+            franchise = name;
+            break;
+          }
+        }
+        return { ...d, franchise };
+      }).filter(d => d.franchise !== 'Other');
+
+      const regions = [
+        { key: 'naSales', name: 'NA', color: colors.lime },
+        { key: 'euSales', name: 'EU', color: colors.cyan },
+        { key: 'jpSales', name: 'JP', color: colors.coral },
+        { key: 'otherSales', name: 'Other', color: colors.amber }
+      ];
+
+      const franchises = Object.keys(franchisePatterns);
+      const franchiseColors = [colors.lime, colors.cyan, colors.amber, colors.coral, colors.emerald];
+
+      // Small multiples: one chart per region
+      const chartWidth = innerWidth / 2 - 10;
+      const chartHeight = (innerHeight - 30) / 2 - 10;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      regions.forEach((region, idx) => {
+        const col = idx % 2;
+        const row = Math.floor(idx / 2);
+        const offsetX = margin.left + col * (chartWidth + 20);
+        const offsetY = margin.top + row * (chartHeight + 25);
+
+        const g = svg.append('g')
+          .attr('transform', `translate(${offsetX},${offsetY})`);
+
+        // Region title
+        g.append('text')
+          .attr('x', chartWidth / 2)
+          .attr('y', -8)
+          .attr('text-anchor', 'middle')
+          .attr('fill', region.color)
+          .attr('font-size', '11px')
+          .attr('font-weight', '600')
+          .text(region.name);
+
+        // Aggregate franchise sales by year for this region
+        const years = [...new Set(dataWithFranchise.map(d => d.year))].filter(y => y >= 1995 && y <= 2016).sort((a, b) => a - b);
+
+        const franchiseYearData = franchises.map(franchise => {
+          const franchiseGames = dataWithFranchise.filter(d => d.franchise === franchise);
+          const yearSales = years.map(year => {
+            const yearGames = franchiseGames.filter(d => d.year === year);
+            return { year, sales: d3.sum(yearGames, d => d[region.key]) };
+          });
+          return { franchise, data: yearSales };
+        });
+
+        const maxSales = d3.max(franchiseYearData, f => d3.max(f.data, d => d.sales)) || 1;
+
+        const x = d3.scaleLinear()
+          .domain(d3.extent(years))
+          .range([0, chartWidth]);
+
+        const y = d3.scaleLinear()
+          .domain([0, maxSales])
+          .range([chartHeight, 0]);
+
+        const line = d3.line()
+          .x(d => x(d.year))
+          .y(d => y(d.sales))
+          .curve(d3.curveMonotoneX);
+
+        // Draw lines
+        franchiseYearData.forEach((f, i) => {
+          g.append('path')
+            .datum(f.data)
+            .attr('fill', 'none')
+            .attr('stroke', franchiseColors[i % franchiseColors.length])
+            .attr('stroke-width', 2)
+            .attr('opacity', 0.8)
+            .attr('d', line);
+        });
+
+        // X axis
+        g.append('g')
+          .attr('transform', `translate(0,${chartHeight})`)
+          .call(d3.axisBottom(x).ticks(4).tickFormat(d => `'${String(d).slice(2)}`))
+          .selectAll('text')
+          .attr('fill', colors.textTertiary)
+          .attr('font-size', '8px');
+
+        g.selectAll('.domain, .tick line').attr('stroke', colors.border).attr('opacity', 0.5);
+
+        // Y axis
+        g.append('g')
+          .call(d3.axisLeft(y).ticks(3).tickFormat(d => d > 0 ? d.toFixed(0) : ''))
+          .selectAll('text')
+          .attr('fill', colors.textTertiary)
+          .attr('font-size', '8px');
+      });
+
+      // Legend at bottom
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 15})`);
+
+      const legendWidth = franchises.length * 85;
+      const startX = -legendWidth / 2;
+
+      franchises.forEach((f, i) => {
+        const xPos = startX + i * 85;
+        legend.append('circle')
+          .attr('cx', xPos)
+          .attr('cy', 0)
+          .attr('r', 4)
+          .attr('fill', franchiseColors[i]);
+
+        legend.append('text')
+          .attr('x', xPos + 8)
+          .attr('y', 3)
+          .attr('fill', colors.textSecondary)
+          .attr('font-size', '9px')
+          .text(f);
       });
     }
 
