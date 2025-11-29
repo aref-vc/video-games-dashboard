@@ -832,7 +832,7 @@
             <div class="chart-subtitle">Sales trajectory over time</div>
           </div>
         </div>
-        <div class="chart-container" id="chart-franchise-lines">
+        <div class="chart-container" id="chart-franchise-growth">
           <div class="loading">Loading</div>
         </div>
       </div>
@@ -5105,7 +5105,7 @@
     }
 
     function createFranchiseGrowth() {
-      const container = document.getElementById('chart-franchise-lines');
+      const container = document.getElementById('chart-franchise-growth');
       if (!container) return;
       container.innerHTML = '';
 
