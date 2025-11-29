@@ -5744,11 +5744,846 @@
     // ========================================
     // Section 6: Decade Comparison
     // ========================================
+
+    function getDecade(year) {
+      if (year < 1990) return '1980s';
+      if (year < 2000) return '1990s';
+      if (year < 2010) return '2000s';
+      return '2010s';
+    }
+
+    const decades = ['1980s', '1990s', '2000s', '2010s'];
+    const decadeColors = {
+      '1980s': colors.coral,
+      '1990s': colors.amber,
+      '2000s': colors.cyan,
+      '2010s': colors.lime
+    };
+
     function initDecadesSection() {
-      // Placeholder - charts will be implemented in Milestone 7
-      document.querySelectorAll('#decades .loading').forEach(el => {
-        el.textContent = 'Coming soon...';
+      createDecadeSales();
+      createDecadeGenres();
+      createDecadePlatforms();
+      createDecadePublishers();
+      createDecadeRegions();
+      createDecadeDistribution();
+      createDecadeWords();
+      createDecadeTrends();
+    }
+
+    function createDecadeSales() {
+      const container = document.getElementById('chart-decade-sales');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 30, bottom: 50, left: 60 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Calculate sales by decade
+      const decadeData = decades.map(decade => ({
+        decade,
+        sales: d3.sum(state.data.filter(d => d.year && getDecade(d.year) === decade), d => d.globalSales),
+        games: state.data.filter(d => d.year && getDecade(d.year) === decade).length
+      }));
+
+      const x = d3.scaleBand()
+        .domain(decades)
+        .range([0, innerWidth])
+        .padding(0.3);
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(decadeData, d => d.sales)])
+        .range([innerHeight, 0]);
+
+      // Bars
+      g.selectAll('.bar')
+        .data(decadeData)
+        .join('rect')
+        .attr('class', 'bar')
+        .attr('x', d => x(d.decade))
+        .attr('y', d => y(d.sales))
+        .attr('width', x.bandwidth())
+        .attr('height', d => innerHeight - y(d.sales))
+        .attr('fill', d => decadeColors[d.decade])
+        .attr('opacity', 0.8);
+
+      // Value labels
+      g.selectAll('.label')
+        .data(decadeData)
+        .join('text')
+        .attr('class', 'label')
+        .attr('x', d => x(d.decade) + x.bandwidth() / 2)
+        .attr('y', d => y(d.sales) - 8)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textPrimary)
+        .attr('font-size', '12px')
+        .attr('font-weight', '600')
+        .text(d => d.sales.toFixed(0) + 'M');
+
+      // Axes
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '11px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      g.append('g')
+        .call(d3.axisLeft(y).ticks(5).tickFormat(d => d + 'M'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 12})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Total global sales in millions');
+    }
+
+    function createDecadeGenres() {
+      const container = document.getElementById('chart-decade-genres');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const topGenres = ['Action', 'Sports', 'Shooter', 'Role-Playing', 'Platform', 'Misc'];
+      const genreColorMap = {
+        'Action': colors.lime, 'Sports': colors.cyan, 'Shooter': colors.coral,
+        'Role-Playing': colors.amber, 'Platform': colors.emerald, 'Misc': colors.textTertiary
+      };
+
+      // Small multiples: 2x2 grid for 4 decades
+      const chartWidth = (width - 40) / 2;
+      const chartHeight = (height - 60) / 2;
+      const radius = Math.min(chartWidth, chartHeight) / 2 - 20;
+
+      decades.forEach((decade, idx) => {
+        const col = idx % 2;
+        const row = Math.floor(idx / 2);
+        const centerX = col * chartWidth + chartWidth / 2 + 20;
+        const centerY = row * chartHeight + chartHeight / 2 + 10;
+
+        const g = svg.append('g')
+          .attr('transform', `translate(${centerX},${centerY})`);
+
+        // Calculate genre distribution for this decade
+        const decadeGames = state.data.filter(d => d.year && getDecade(d.year) === decade);
+        const genreData = topGenres.map(genre => ({
+          genre,
+          sales: d3.sum(decadeGames.filter(d => d.genre === genre), d => d.globalSales)
+        })).filter(d => d.sales > 0);
+
+        const pie = d3.pie().value(d => d.sales).sort(null);
+        const arc = d3.arc().innerRadius(radius * 0.5).outerRadius(radius);
+
+        g.selectAll('path')
+          .data(pie(genreData))
+          .join('path')
+          .attr('d', arc)
+          .attr('fill', d => genreColorMap[d.data.genre] || colors.textTertiary)
+          .attr('opacity', 0.8);
+
+        // Decade label
+        g.append('text')
+          .attr('y', -radius - 8)
+          .attr('text-anchor', 'middle')
+          .attr('fill', decadeColors[decade])
+          .attr('font-size', '11px')
+          .attr('font-weight', '600')
+          .text(decade);
       });
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 12})`);
+
+      const legendItems = topGenres.slice(0, 5);
+      const legendWidth = legendItems.length * 65;
+      const startX = -legendWidth / 2;
+
+      legendItems.forEach((g, i) => {
+        legend.append('circle')
+          .attr('cx', startX + i * 65)
+          .attr('cy', 0)
+          .attr('r', 4)
+          .attr('fill', genreColorMap[g]);
+
+        legend.append('text')
+          .attr('x', startX + i * 65 + 8)
+          .attr('y', 4)
+          .attr('fill', colors.textSecondary)
+          .attr('font-size', '9px')
+          .text(g);
+      });
+    }
+
+    function createDecadePlatforms() {
+      const container = document.getElementById('chart-decade-platforms');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 40, right: 30, bottom: 50, left: 60 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Calculate platform count per decade
+      const decadeData = decades.map(decade => {
+        const decadeGames = state.data.filter(d => d.year && getDecade(d.year) === decade);
+        const platforms = new Set(decadeGames.map(d => d.platform));
+        return { decade, count: platforms.size };
+      });
+
+      const x = d3.scalePoint()
+        .domain(decades)
+        .range([0, innerWidth])
+        .padding(0.5);
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(decadeData, d => d.count) * 1.2])
+        .range([innerHeight, 0]);
+
+      // Draw slope lines
+      const line = d3.line()
+        .x(d => x(d.decade))
+        .y(d => y(d.count));
+
+      g.append('path')
+        .datum(decadeData)
+        .attr('fill', 'none')
+        .attr('stroke', colors.lime)
+        .attr('stroke-width', 3)
+        .attr('d', line);
+
+      // Points and labels
+      decadeData.forEach(d => {
+        g.append('circle')
+          .attr('cx', x(d.decade))
+          .attr('cy', y(d.count))
+          .attr('r', 8)
+          .attr('fill', decadeColors[d.decade]);
+
+        g.append('text')
+          .attr('x', x(d.decade))
+          .attr('y', y(d.count) - 15)
+          .attr('text-anchor', 'middle')
+          .attr('fill', colors.textPrimary)
+          .attr('font-size', '12px')
+          .attr('font-weight', '600')
+          .text(d.count);
+      });
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '11px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y).ticks(5))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 12})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Unique platforms with game releases');
+    }
+
+    function createDecadePublishers() {
+      const container = document.getElementById('chart-decade-publishers');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 30, bottom: 50, left: 100 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Compare 2000s vs 2010s
+      const decade2000s = state.data.filter(d => d.year && getDecade(d.year) === '2000s');
+      const decade2010s = state.data.filter(d => d.year && getDecade(d.year) === '2010s');
+
+      const publishers2000s = d3.rollup(decade2000s, v => d3.sum(v, d => d.globalSales), d => d.publisher);
+      const publishers2010s = d3.rollup(decade2010s, v => d3.sum(v, d => d.globalSales), d => d.publisher);
+
+      // Get top publishers from both decades
+      const allPublishers = new Set([...publishers2000s.keys(), ...publishers2010s.keys()]);
+      const topPubs = Array.from(allPublishers)
+        .map(p => ({
+          name: p,
+          sales2000s: publishers2000s.get(p) || 0,
+          sales2010s: publishers2010s.get(p) || 0,
+          total: (publishers2000s.get(p) || 0) + (publishers2010s.get(p) || 0)
+        }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 10);
+
+      const maxSales = d3.max(topPubs, d => Math.max(d.sales2000s, d.sales2010s));
+
+      const y = d3.scaleBand()
+        .domain(topPubs.map(d => d.name))
+        .range([0, innerHeight])
+        .padding(0.3);
+
+      const x = d3.scaleLinear()
+        .domain([-maxSales, maxSales])
+        .range([0, innerWidth]);
+
+      const centerX = x(0);
+
+      // Draw butterfly bars
+      topPubs.forEach(d => {
+        // 2000s (left)
+        g.append('rect')
+          .attr('x', centerX - (d.sales2000s / maxSales) * (innerWidth / 2))
+          .attr('y', y(d.name))
+          .attr('width', (d.sales2000s / maxSales) * (innerWidth / 2))
+          .attr('height', y.bandwidth())
+          .attr('fill', colors.cyan)
+          .attr('opacity', 0.8);
+
+        // 2010s (right)
+        g.append('rect')
+          .attr('x', centerX)
+          .attr('y', y(d.name))
+          .attr('width', (d.sales2010s / maxSales) * (innerWidth / 2))
+          .attr('height', y.bandwidth())
+          .attr('fill', colors.lime)
+          .attr('opacity', 0.8);
+      });
+
+      // Center line
+      g.append('line')
+        .attr('x1', centerX)
+        .attr('x2', centerX)
+        .attr('y1', 0)
+        .attr('y2', innerHeight)
+        .attr('stroke', colors.border)
+        .attr('stroke-width', 1);
+
+      // Y axis (publisher names)
+      g.append('g')
+        .attr('transform', `translate(${centerX},0)`)
+        .call(d3.axisLeft(y).tickSize(0))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '9px')
+        .attr('text-anchor', 'middle')
+        .attr('dx', 0);
+
+      g.selectAll('.domain').attr('stroke', 'none');
+
+      // Labels
+      g.append('text')
+        .attr('x', centerX / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.cyan)
+        .attr('font-size', '11px')
+        .text('← 2000s');
+
+      g.append('text')
+        .attr('x', centerX + (innerWidth - centerX) / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.lime)
+        .attr('font-size', '11px')
+        .text('2010s →');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 12})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Top 10 publishers compared');
+    }
+
+    function createDecadeRegions() {
+      const container = document.getElementById('chart-decade-regions');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 30, bottom: 50, left: 80 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const regions = [
+        { key: 'naSales', label: 'NA', color: colors.lime },
+        { key: 'euSales', label: 'EU', color: colors.cyan },
+        { key: 'jpSales', label: 'JP', color: colors.coral },
+        { key: 'otherSales', label: 'Other', color: colors.amber }
+      ];
+
+      // Calculate regional sales by decade
+      const decadeRegionData = decades.map(decade => {
+        const decadeGames = state.data.filter(d => d.year && getDecade(d.year) === decade);
+        const result = { decade };
+        regions.forEach(r => {
+          result[r.key] = d3.sum(decadeGames, d => d[r.key]);
+        });
+        return result;
+      });
+
+      const y = d3.scaleBand()
+        .domain(decades)
+        .range([0, innerHeight])
+        .padding(0.2);
+
+      const x = d3.scaleLinear()
+        .domain([0, d3.max(decadeRegionData, d => d.naSales + d.euSales + d.jpSales + d.otherSales)])
+        .range([0, innerWidth]);
+
+      const stack = d3.stack()
+        .keys(regions.map(r => r.key));
+
+      const series = stack(decadeRegionData);
+
+      // Draw stacked bars
+      g.selectAll('g.region')
+        .data(series)
+        .join('g')
+        .attr('class', 'region')
+        .attr('fill', (d, i) => regions[i].color)
+        .attr('opacity', 0.8)
+        .selectAll('rect')
+        .data(d => d)
+        .join('rect')
+        .attr('y', d => y(d.data.decade))
+        .attr('x', d => x(d[0]))
+        .attr('width', d => x(d[1]) - x(d[0]))
+        .attr('height', y.bandwidth());
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '11px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).ticks(5).tickFormat(d => d + 'M'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 12})`);
+
+      const legendWidth = regions.length * 60;
+      const startX = -legendWidth / 2;
+
+      regions.forEach((r, i) => {
+        legend.append('circle')
+          .attr('cx', startX + i * 60)
+          .attr('cy', 0)
+          .attr('r', 4)
+          .attr('fill', r.color);
+
+        legend.append('text')
+          .attr('x', startX + i * 60 + 8)
+          .attr('y', 4)
+          .attr('fill', colors.textSecondary)
+          .attr('font-size', '9px')
+          .text(r.label);
+      });
+    }
+
+    function createDecadeDistribution() {
+      const container = document.getElementById('chart-decade-distribution');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 30, bottom: 50, left: 60 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Calculate box plot stats for each decade
+      const boxData = decades.map(decade => {
+        const sales = state.data
+          .filter(d => d.year && getDecade(d.year) === decade)
+          .map(d => d.globalSales)
+          .sort((a, b) => a - b);
+
+        if (sales.length === 0) return null;
+
+        const q1 = d3.quantile(sales, 0.25);
+        const median = d3.quantile(sales, 0.5);
+        const q3 = d3.quantile(sales, 0.75);
+        const iqr = q3 - q1;
+        const min = Math.max(d3.min(sales), q1 - 1.5 * iqr);
+        const max = Math.min(d3.max(sales), q3 + 1.5 * iqr);
+
+        return { decade, q1, median, q3, min, max };
+      }).filter(Boolean);
+
+      const x = d3.scaleBand()
+        .domain(decades)
+        .range([0, innerWidth])
+        .padding(0.3);
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(boxData, d => d.max) * 1.1])
+        .range([innerHeight, 0]);
+
+      const boxWidth = x.bandwidth();
+
+      boxData.forEach(d => {
+        const xPos = x(d.decade);
+
+        // Whisker line
+        g.append('line')
+          .attr('x1', xPos + boxWidth / 2)
+          .attr('x2', xPos + boxWidth / 2)
+          .attr('y1', y(d.min))
+          .attr('y2', y(d.max))
+          .attr('stroke', decadeColors[d.decade])
+          .attr('stroke-width', 1);
+
+        // Box
+        g.append('rect')
+          .attr('x', xPos)
+          .attr('y', y(d.q3))
+          .attr('width', boxWidth)
+          .attr('height', y(d.q1) - y(d.q3))
+          .attr('fill', decadeColors[d.decade])
+          .attr('opacity', 0.5)
+          .attr('stroke', decadeColors[d.decade]);
+
+        // Median
+        g.append('line')
+          .attr('x1', xPos)
+          .attr('x2', xPos + boxWidth)
+          .attr('y1', y(d.median))
+          .attr('y2', y(d.median))
+          .attr('stroke', decadeColors[d.decade])
+          .attr('stroke-width', 2);
+
+        // Whisker caps
+        g.append('line')
+          .attr('x1', xPos + boxWidth * 0.25)
+          .attr('x2', xPos + boxWidth * 0.75)
+          .attr('y1', y(d.min))
+          .attr('y2', y(d.min))
+          .attr('stroke', decadeColors[d.decade]);
+
+        g.append('line')
+          .attr('x1', xPos + boxWidth * 0.25)
+          .attr('x2', xPos + boxWidth * 0.75)
+          .attr('y1', y(d.max))
+          .attr('y2', y(d.max))
+          .attr('stroke', decadeColors[d.decade]);
+      });
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '11px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y).ticks(5).tickFormat(d => d + 'M'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 12})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Box = IQR, Line = Median');
+    }
+
+    function createDecadeWords() {
+      const container = document.getElementById('chart-decade-words');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const stopWords = new Set(['the', 'of', 'and', 'a', 'to', 'in', 'for', 'on', 'with', 'at', 'by', 'an', 'be', 'this', 'from', 'or', 'as', 'is', 'it', 'vs', '-', '&']);
+
+      // Focus on 2000s vs 2010s comparison
+      const compareDecades = ['2000s', '2010s'];
+      const chartWidth = width / 2;
+      const chartHeight = height - 40;
+
+      compareDecades.forEach((decade, idx) => {
+        const offsetX = idx * chartWidth + chartWidth / 2;
+
+        const g = svg.append('g')
+          .attr('transform', `translate(${offsetX},${chartHeight / 2 + 10})`);
+
+        // Extract words for this decade
+        const decadeGames = state.data.filter(d => d.year && getDecade(d.year) === decade);
+        const wordCounts = {};
+
+        decadeGames.forEach(game => {
+          const words = game.name.toLowerCase()
+            .replace(/[^a-z\s]/g, '')
+            .split(/\s+/)
+            .filter(w => w.length > 2 && !stopWords.has(w));
+
+          words.forEach(word => {
+            wordCounts[word] = (wordCounts[word] || 0) + game.globalSales;
+          });
+        });
+
+        const topWords = Object.entries(wordCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 20);
+
+        const maxSales = topWords[0][1];
+        const sizeScale = d3.scaleSqrt().domain([0, maxSales]).range([8, 24]);
+
+        // Spiral layout
+        let angle = 0;
+        let radius = 0;
+
+        topWords.forEach(([word, sales], i) => {
+          const fontSize = sizeScale(sales);
+          angle += 0.5 + Math.random() * 0.2;
+          radius += 3;
+
+          const x = Math.cos(angle) * radius;
+          const y = Math.sin(angle) * radius * 0.6;
+
+          g.append('text')
+            .attr('x', x)
+            .attr('y', y)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', fontSize + 'px')
+            .attr('fill', decadeColors[decade])
+            .attr('opacity', 0.8)
+            .text(word);
+        });
+
+        // Decade label
+        g.append('text')
+          .attr('y', -chartHeight / 2 + 15)
+          .attr('text-anchor', 'middle')
+          .attr('fill', decadeColors[decade])
+          .attr('font-size', '12px')
+          .attr('font-weight', '600')
+          .text(decade);
+      });
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 12})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Word size = total sales');
+    }
+
+    function createDecadeTrends() {
+      const container = document.getElementById('chart-decade-trends');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const topGenres = ['Action', 'Sports', 'Shooter', 'Role-Playing', 'Platform', 'Racing'];
+      const genreColors = [colors.lime, colors.cyan, colors.coral, colors.amber, colors.emerald, colors.lime];
+
+      // Small multiples: 3x2 for genres
+      const cols = 3;
+      const rows = 2;
+      const chartWidth = (width - 40) / cols;
+      const chartHeight = (height - 60) / rows;
+      const margin = { top: 20, right: 10, bottom: 25, left: 30 };
+      const innerW = chartWidth - margin.left - margin.right;
+      const innerH = chartHeight - margin.top - margin.bottom;
+
+      topGenres.forEach((genre, idx) => {
+        const col = idx % cols;
+        const row = Math.floor(idx / cols);
+        const offsetX = col * chartWidth + margin.left + 20;
+        const offsetY = row * chartHeight + margin.top + 5;
+
+        const g = svg.append('g')
+          .attr('transform', `translate(${offsetX},${offsetY})`);
+
+        // Calculate sales by decade for this genre
+        const genreDecadeData = decades.map(decade => {
+          const sales = d3.sum(
+            state.data.filter(d => d.year && getDecade(d.year) === decade && d.genre === genre),
+            d => d.globalSales
+          );
+          return { decade, sales };
+        });
+
+        const x = d3.scaleBand()
+          .domain(decades)
+          .range([0, innerW])
+          .padding(0.2);
+
+        const y = d3.scaleLinear()
+          .domain([0, d3.max(genreDecadeData, d => d.sales)])
+          .range([innerH, 0]);
+
+        const area = d3.area()
+          .x(d => x(d.decade) + x.bandwidth() / 2)
+          .y0(innerH)
+          .y1(d => y(d.sales))
+          .curve(d3.curveMonotoneX);
+
+        // Area
+        g.append('path')
+          .datum(genreDecadeData)
+          .attr('fill', genreColors[idx])
+          .attr('opacity', 0.6)
+          .attr('d', area);
+
+        // Line
+        const line = d3.line()
+          .x(d => x(d.decade) + x.bandwidth() / 2)
+          .y(d => y(d.sales))
+          .curve(d3.curveMonotoneX);
+
+        g.append('path')
+          .datum(genreDecadeData)
+          .attr('fill', 'none')
+          .attr('stroke', genreColors[idx])
+          .attr('stroke-width', 2)
+          .attr('d', line);
+
+        // Genre label
+        g.append('text')
+          .attr('x', innerW / 2)
+          .attr('y', -5)
+          .attr('text-anchor', 'middle')
+          .attr('fill', genreColors[idx])
+          .attr('font-size', '10px')
+          .attr('font-weight', '600')
+          .text(genre);
+
+        // X axis (minimal)
+        g.append('g')
+          .attr('transform', `translate(0,${innerH})`)
+          .call(d3.axisBottom(x).tickSize(0))
+          .selectAll('text')
+          .attr('fill', colors.textTertiary)
+          .attr('font-size', '7px');
+
+        g.selectAll('.domain').attr('stroke', colors.border).attr('opacity', 0.3);
+      });
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 10})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Genre trends across decades');
     }
 
     // ========================================
