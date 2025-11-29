@@ -2182,7 +2182,7 @@
       ];
 
       const x = d3.scaleLinear()
-        .domain([1983, 2016])
+        .domain([1980, 2020])
         .range([0, width]);
 
       const y = d3.scaleLinear()
@@ -2951,7 +2951,7 @@
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
       // Aggregate by year and region (normalized)
-      const years = [...new Set(state.data.map(d => d.year))].filter(y => y >= 1990 && y <= 2016).sort((a, b) => a - b);
+      const years = [...new Set(state.data.map(d => d.year))].filter(y => y >= 1980 && y <= 2020).sort((a, b) => a - b);
       const regions = ['naSales', 'euSales', 'jpSales', 'otherSales'];
       const regionLabels = { naSales: 'North America', euSales: 'Europe', jpSales: 'Japan', otherSales: 'Other' };
       const regionColors = { naSales: colors.lime, euSales: colors.cyan, jpSales: colors.coral, otherSales: colors.amber };
@@ -3113,7 +3113,7 @@
           .text(region.name);
 
         // Aggregate franchise sales by year for this region
-        const years = [...new Set(dataWithFranchise.map(d => d.year))].filter(y => y >= 1995 && y <= 2016).sort((a, b) => a - b);
+        const years = [...new Set(dataWithFranchise.map(d => d.year))].filter(y => y >= 1980 && y <= 2020).sort((a, b) => a - b);
 
         const franchiseYearData = franchises.map(franchise => {
           const franchiseGames = dataWithFranchise.filter(d => d.franchise === franchise);
@@ -7457,7 +7457,7 @@
       });
 
       const x = d3.scaleLinear()
-        .domain([1994, 2016])
+        .domain([1994, 2020])
         .range([0, innerWidth]);
 
       const y = d3.scaleLinear()
@@ -8068,7 +8068,7 @@
       // Find games that are moderately successful but from niche genres
       const cultGames = state.data
         .filter(d =>
-          d.year && d.year >= 1990 && d.year <= 2015 &&
+          d.year && d.year >= 1980 && d.year <= 2020 &&
           d.globalSales >= 0.5 && d.globalSales < 3 &&
           ['Strategy', 'Puzzle', 'Adventure', 'Simulation'].includes(d.genre)
         )
@@ -8096,7 +8096,7 @@
       };
 
       const x = d3.scaleLinear()
-        .domain([1990, 2015])
+        .domain([1980, 2020])
         .range([0, innerWidth]);
 
       const y = d3.scaleLinear()
@@ -8424,7 +8424,7 @@
       const gems = state.data
         .filter(d =>
           d.globalSales >= 0.5 && d.globalSales < 3 &&
-          d.year && d.year >= 1995
+          d.year && d.year >= 1980
         )
         .map(d => {
           const jpRatio = d.jpSales / d.globalSales;
