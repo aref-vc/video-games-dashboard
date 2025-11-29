@@ -158,8 +158,8 @@
        ======================================== */
     main {
       padding: 24px 32px;
-      height: calc((100vh - 160px) * 1.35);
-      min-height: 800px;
+      height: calc(100vh - 160px);
+      overflow: hidden;
     }
 
     .section {
@@ -170,8 +170,28 @@
     .section.active {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      grid-template-rows: repeat(2, 1fr);
+      grid-auto-rows: calc((100vh - 220px) / 2);
       gap: 24px;
+      overflow-y: auto;
+      max-height: 100%;
+      padding-right: 8px;
+    }
+
+    .section::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .section::-webkit-scrollbar-track {
+      background: var(--bg-main);
+    }
+
+    .section::-webkit-scrollbar-thumb {
+      background: var(--border-light);
+      border-radius: 3px;
+    }
+
+    .section::-webkit-scrollbar-thumb:hover {
+      background: var(--lime);
     }
 
     /* ========================================
@@ -392,6 +412,10 @@
     <button class="tab" data-section="regional">Regional Markets</button>
     <button class="tab" data-section="business">Business Intelligence</button>
     <button class="tab" data-section="insights">Key Insights</button>
+    <button class="tab" data-section="franchise">Franchise Analysis</button>
+    <button class="tab" data-section="decades">Decade Comparison</button>
+    <button class="tab" data-section="platforms">Platform Deep Dive</button>
+    <button class="tab" data-section="gems">Hidden Gems</button>
   </nav>
 
   <main>
@@ -586,6 +610,374 @@
         </div>
       </div>
     </section>
+
+    <!-- Section 5: Franchise Analysis -->
+    <section id="franchise" class="section">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Franchise Performance</div>
+            <div class="chart-subtitle">Total sales vs game count</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-franchise-bubble">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Franchise Growth</div>
+            <div class="chart-subtitle">Sales trajectory over time</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-franchise-lines">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Platform Distribution</div>
+            <div class="chart-subtitle">Franchise sales by platform</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-franchise-platforms">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Genre Diversity</div>
+            <div class="chart-subtitle">Franchise genre exploration</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-franchise-genres">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Release Timeline</div>
+            <div class="chart-subtitle">Franchise release history</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-franchise-timeline">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Regional Breakdown</div>
+            <div class="chart-subtitle">Franchise sales by region</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-franchise-regions">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Quality Trajectory</div>
+            <div class="chart-subtitle">Average sales per installment</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-franchise-quality">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Franchise Ecosystem</div>
+            <div class="chart-subtitle">Publisher and platform relationships</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-franchise-network">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 6: Decade Comparison -->
+    <section id="decades" class="section">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Market Size by Decade</div>
+            <div class="chart-subtitle">Total sales growth</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-decade-sales">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Genre Evolution</div>
+            <div class="chart-subtitle">Genre mix per decade</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-decade-genres">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Platform Landscape</div>
+            <div class="chart-subtitle">Platform count per decade</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-decade-platforms">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Publisher Shifts</div>
+            <div class="chart-subtitle">Top publishers comparison</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-decade-publishers">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Regional Growth</div>
+            <div class="chart-subtitle">Market globalization</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-decade-regions">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Sales Distribution</div>
+            <div class="chart-subtitle">Blockbuster emergence</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-decade-distribution">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Title Trends</div>
+            <div class="chart-subtitle">Naming conventions</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-decade-words">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Genre Trends</div>
+            <div class="chart-subtitle">Decade-by-decade comparison</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-decade-trends">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 7: Platform Deep Dive -->
+    <section id="platforms" class="section">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Platform Lifespans</div>
+            <div class="chart-subtitle">First to last game release</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-platform-lifespan">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Lifecycle Sales</div>
+            <div class="chart-subtitle">Sales over platform life</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-platform-lifecycle">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Release Density</div>
+            <div class="chart-subtitle">Games per platform per year</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-platform-density">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Exclusive vs Multi-Platform</div>
+            <div class="chart-subtitle">Platform loyalty</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-platform-exclusive">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Genre Strengths</div>
+            <div class="chart-subtitle">Platform specialization</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-platform-genres">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Generation Transitions</div>
+            <div class="chart-subtitle">User migration patterns</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-platform-transitions">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Library Quality</div>
+            <div class="chart-subtitle">Game count vs avg sales</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-platform-quality">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Console Wars Timeline</div>
+            <div class="chart-subtitle">Platform launch impact</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-platform-wars">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 8: Hidden Gems -->
+    <section id="gems" class="section">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Regional Cult Hits</div>
+            <div class="chart-subtitle">High regional ratio games</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-gems-regional">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Japan Exclusives</div>
+            <div class="chart-subtitle">Japan-only phenomena</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-gems-japan">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Niche Genre Champions</div>
+            <div class="chart-subtitle">Strategy and Puzzle leaders</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-gems-niche">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Small Publisher Hits</div>
+            <div class="chart-subtitle">David vs Goliath</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-gems-publishers">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Underrated Classics</div>
+            <div class="chart-subtitle">Quality without sales</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-gems-classics">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Market Gaps</div>
+            <div class="chart-subtitle">Underserved combinations</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-gems-gaps">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Emerging Markets</div>
+            <div class="chart-subtitle">High Other_Sales ratio</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-gems-emerging">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Hidden Gems Explorer</div>
+            <div class="chart-subtitle">Interactive discovery</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-gems-explorer">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer>
@@ -607,7 +999,11 @@
         evolution: false,
         regional: false,
         business: false,
-        insights: false
+        insights: false,
+        franchise: false,
+        decades: false,
+        platforms: false,
+        gems: false
       }
     };
 
@@ -715,6 +1111,18 @@
           break;
         case 'insights':
           initInsightsSection();
+          break;
+        case 'franchise':
+          initFranchiseSection();
+          break;
+        case 'decades':
+          initDecadesSection();
+          break;
+        case 'platforms':
+          initPlatformsSection();
+          break;
+        case 'gems':
+          initGemsSection();
           break;
       }
       state.initialized[section] = true;
@@ -2540,6 +2948,46 @@
       document.getElementById('yAxis').addEventListener('change', updateChart);
 
       updateChart();
+    }
+
+    // ========================================
+    // Section 5: Franchise Analysis
+    // ========================================
+    function initFranchiseSection() {
+      // Placeholder - charts will be implemented in Milestone 6
+      document.querySelectorAll('#franchise .loading').forEach(el => {
+        el.textContent = 'Coming soon...';
+      });
+    }
+
+    // ========================================
+    // Section 6: Decade Comparison
+    // ========================================
+    function initDecadesSection() {
+      // Placeholder - charts will be implemented in Milestone 7
+      document.querySelectorAll('#decades .loading').forEach(el => {
+        el.textContent = 'Coming soon...';
+      });
+    }
+
+    // ========================================
+    // Section 7: Platform Deep Dive
+    // ========================================
+    function initPlatformsSection() {
+      // Placeholder - charts will be implemented in Milestone 8
+      document.querySelectorAll('#platforms .loading').forEach(el => {
+        el.textContent = 'Coming soon...';
+      });
+    }
+
+    // ========================================
+    // Section 8: Hidden Gems
+    // ========================================
+    function initGemsSection() {
+      // Placeholder - charts will be implemented in Milestone 9
+      document.querySelectorAll('#gems .loading').forEach(el => {
+        el.textContent = 'Coming soon...';
+      });
     }
 
     // ========================================
