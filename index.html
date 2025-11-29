@@ -1434,7 +1434,7 @@
         .map(d => d[0]);
 
       // Aggregate by year and platform
-      const years = d3.range(1985, 2017);
+      const years = d3.range(1980, 2021);
       const byYearPlatform = d3.rollup(
         state.data.filter(d => topPlatforms.includes(d.platform)),
         v => v.length,
@@ -1554,7 +1554,7 @@
 
       // Get genre rankings by year
       const genres = Object.keys(genreColors);
-      const years = d3.range(1990, 2016);
+      const years = d3.range(1980, 2021);
 
       const rankings = years.map(year => {
         const yearData = state.data.filter(d => d.year === year);
@@ -1659,7 +1659,7 @@
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
       // Aggregate by year
-      const years = d3.range(1985, 2017);
+      const years = d3.range(1980, 2021);
       const yearData = years.map(year => {
         const games = state.data.filter(d => d.year === year);
         return {
@@ -1884,7 +1884,7 @@
 
       // Get top 6 genres
       const genres = ['Action', 'Sports', 'Shooter', 'Role-Playing', 'Platform', 'Racing'];
-      const years = d3.range(1990, 2016);
+      const years = d3.range(1980, 2021);
 
       // Aggregate by year and genre
       const stackData = years.map(year => {
@@ -1985,30 +1985,30 @@
       const g = svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
-      // Calculate publisher market share for 2000 and 2015
+      // Calculate publisher market share for 2000 and 2016 (last full year with substantial data)
       const year2000 = state.data.filter(d => d.year === 2000);
-      const year2015 = state.data.filter(d => d.year === 2015);
+      const year2016 = state.data.filter(d => d.year === 2016);
 
       const total2000 = d3.sum(year2000, d => d.globalSales);
-      const total2015 = d3.sum(year2015, d => d.globalSales);
+      const total2016 = d3.sum(year2016, d => d.globalSales);
 
       const pub2000 = d3.rollup(year2000, v => d3.sum(v, d => d.globalSales) / total2000 * 100, d => d.publisher);
-      const pub2015 = d3.rollup(year2015, v => d3.sum(v, d => d.globalSales) / total2015 * 100, d => d.publisher);
+      const pub2016 = d3.rollup(year2016, v => d3.sum(v, d => d.globalSales) / total2016 * 100, d => d.publisher);
 
       // Get top publishers present in both years
-      const allPubs = new Set([...pub2000.keys(), ...pub2015.keys()]);
+      const allPubs = new Set([...pub2000.keys(), ...pub2016.keys()]);
       const slopeData = Array.from(allPubs)
         .map(pub => ({
           name: pub,
           y2000: pub2000.get(pub) || 0,
-          y2015: pub2015.get(pub) || 0
+          y2016: pub2016.get(pub) || 0
         }))
-        .filter(d => d.y2000 > 2 || d.y2015 > 2)
-        .sort((a, b) => b.y2015 - a.y2015)
+        .filter(d => d.y2000 > 2 || d.y2016 > 2)
+        .sort((a, b) => b.y2016 - a.y2016)
         .slice(0, 8);
 
       const y = d3.scaleLinear()
-        .domain([0, d3.max(slopeData, d => Math.max(d.y2000, d.y2015))])
+        .domain([0, d3.max(slopeData, d => Math.max(d.y2000, d.y2016))])
         .range([height, 0]);
 
       // Draw slopes
@@ -2020,7 +2020,7 @@
           .attr('x1', 0)
           .attr('y1', y(d.y2000))
           .attr('x2', width)
-          .attr('y2', y(d.y2015))
+          .attr('y2', y(d.y2016))
           .attr('stroke', color)
           .attr('stroke-width', 2)
           .attr('opacity', 0.7);
@@ -2035,7 +2035,7 @@
         // Right dot
         g.append('circle')
           .attr('cx', width)
-          .attr('cy', y(d.y2015))
+          .attr('cy', y(d.y2016))
           .attr('r', 5)
           .attr('fill', color);
 
@@ -2052,12 +2052,12 @@
         // Right label
         g.append('text')
           .attr('x', width + 8)
-          .attr('y', y(d.y2015))
+          .attr('y', y(d.y2016))
           .attr('dy', '0.35em')
           .attr('text-anchor', 'start')
           .attr('fill', colors.textTertiary)
           .attr('font-size', '9px')
-          .text(`${d.y2015.toFixed(1)}%`);
+          .text(`${d.y2016.toFixed(1)}%`);
       });
 
       // Year labels
@@ -2077,7 +2077,7 @@
         .attr('fill', colors.textPrimary)
         .attr('font-size', '11px')
         .attr('font-weight', '600')
-        .text('2015');
+        .text('2016');
     }
 
     function createHorizonChart() {
@@ -2098,7 +2098,7 @@
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
       const genres = ['Action', 'Sports', 'Shooter', 'Role-Playing', 'Racing', 'Platform'];
-      const years = d3.range(1990, 2016);
+      const years = d3.range(1980, 2021);
       const rowHeight = height / genres.length;
 
       // Aggregate by year and genre
@@ -4337,7 +4337,7 @@
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
       // Calculate YoY changes
-      const years = d3.range(1996, 2016);
+      const years = d3.range(1980, 2021);
       const yearSales = years.map(year => ({
         year,
         sales: d3.sum(state.data.filter(d => d.year === year), d => d.globalSales)
@@ -6905,7 +6905,7 @@
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
       const topPlatforms = ['PS2', 'X360', 'PS3', 'Wii', 'DS', 'PS', 'GBA', 'PC'];
-      const years = d3.range(1995, 2017);
+      const years = d3.range(1980, 2021);
 
       const y = d3.scaleBand()
         .domain(topPlatforms)
