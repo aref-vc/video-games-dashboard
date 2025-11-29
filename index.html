@@ -649,6 +649,50 @@
           <div class="loading">Loading</div>
         </div>
       </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Top Publishers Ranking</div>
+            <div class="chart-subtitle">Sales leaders by total revenue</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-lollipop">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Quality vs Quantity</div>
+            <div class="chart-subtitle">Avg sales per game vs game count</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-dumbbell">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Publisher-Platform-Genre Flow</div>
+            <div class="chart-subtitle">Where publishers focus their efforts</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-sankey">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Publisher Consistency</div>
+            <div class="chart-subtitle">Sales distribution variance</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-boxplot">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
     </section>
 
     <!-- Section 4: Key Insights -->
@@ -3058,6 +3102,10 @@
       createBeeswarm();
       createTreemap();
       createParallelCoords();
+      createLollipop();
+      createDumbbell();
+      createSankey();
+      createBoxPlot();
     }
 
     function createForceGraph() {
@@ -3489,6 +3537,471 @@
           .attr('font-size', '10px')
           .text(labels[dim]);
       });
+    }
+
+    function createLollipop() {
+      const container = document.getElementById('chart-lollipop');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 20, right: 30, bottom: 50, left: 120 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Top 20 publishers by sales
+      const publisherSales = d3.rollup(state.data, v => d3.sum(v, d => d.globalSales), d => d.publisher);
+      const topPublishers = Array.from(publisherSales)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20)
+        .map(([name, sales]) => ({ name, sales }));
+
+      const y = d3.scaleBand()
+        .domain(topPublishers.map(d => d.name))
+        .range([0, innerHeight])
+        .padding(0.4);
+
+      const x = d3.scaleLinear()
+        .domain([0, d3.max(topPublishers, d => d.sales)])
+        .range([0, innerWidth]);
+
+      const colorScale = d3.scaleOrdinal()
+        .domain(topPublishers.map(d => d.name))
+        .range([colors.lime, colors.cyan, colors.amber, colors.coral, colors.emerald]);
+
+      // Lines
+      g.selectAll('.lollipop-line')
+        .data(topPublishers)
+        .join('line')
+        .attr('class', 'lollipop-line')
+        .attr('x1', 0)
+        .attr('x2', d => x(d.sales))
+        .attr('y1', d => y(d.name) + y.bandwidth() / 2)
+        .attr('y2', d => y(d.name) + y.bandwidth() / 2)
+        .attr('stroke', (d, i) => colorScale(d.name))
+        .attr('stroke-width', 2)
+        .attr('opacity', 0.6);
+
+      // Circles
+      g.selectAll('.lollipop-circle')
+        .data(topPublishers)
+        .join('circle')
+        .attr('class', 'lollipop-circle')
+        .attr('cx', d => x(d.sales))
+        .attr('cy', d => y(d.name) + y.bandwidth() / 2)
+        .attr('r', 6)
+        .attr('fill', (d, i) => colorScale(d.name));
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '9px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).ticks(5).tickFormat(d => d + 'M'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 15})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Total global sales in millions');
+    }
+
+    function createDumbbell() {
+      const container = document.getElementById('chart-dumbbell');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 40, bottom: 60, left: 120 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Publisher data: avg sales and game count
+      const publisherData = d3.rollup(state.data,
+        v => ({
+          count: v.length,
+          avgSales: d3.mean(v, d => d.globalSales),
+          totalSales: d3.sum(v, d => d.globalSales)
+        }),
+        d => d.publisher
+      );
+
+      const topPublishers = Array.from(publisherData)
+        .sort((a, b) => b[1].totalSales - a[1].totalSales)
+        .slice(0, 15)
+        .map(([name, data]) => ({ name, ...data }));
+
+      const y = d3.scaleBand()
+        .domain(topPublishers.map(d => d.name))
+        .range([0, innerHeight])
+        .padding(0.3);
+
+      const maxCount = d3.max(topPublishers, d => d.count);
+      const maxAvg = d3.max(topPublishers, d => d.avgSales);
+
+      // Normalize both to same scale
+      const x = d3.scaleLinear()
+        .domain([0, 100])
+        .range([0, innerWidth]);
+
+      // Draw connecting lines
+      g.selectAll('.dumbbell-line')
+        .data(topPublishers)
+        .join('line')
+        .attr('class', 'dumbbell-line')
+        .attr('x1', d => x((d.count / maxCount) * 100))
+        .attr('x2', d => x((d.avgSales / maxAvg) * 100))
+        .attr('y1', d => y(d.name) + y.bandwidth() / 2)
+        .attr('y2', d => y(d.name) + y.bandwidth() / 2)
+        .attr('stroke', colors.border)
+        .attr('stroke-width', 2)
+        .attr('opacity', 0.5);
+
+      // Game count circles (left)
+      g.selectAll('.dumbbell-count')
+        .data(topPublishers)
+        .join('circle')
+        .attr('class', 'dumbbell-count')
+        .attr('cx', d => x((d.count / maxCount) * 100))
+        .attr('cy', d => y(d.name) + y.bandwidth() / 2)
+        .attr('r', 7)
+        .attr('fill', colors.amber);
+
+      // Avg sales circles (right)
+      g.selectAll('.dumbbell-avg')
+        .data(topPublishers)
+        .join('circle')
+        .attr('class', 'dumbbell-avg')
+        .attr('cx', d => x((d.avgSales / maxAvg) * 100))
+        .attr('cy', d => y(d.name) + y.bandwidth() / 2)
+        .attr('r', 7)
+        .attr('fill', colors.lime);
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '9px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).ticks(5).tickFormat(d => d + '%'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 20})`);
+
+      const legendItems = [
+        { label: 'Game Count', color: colors.amber },
+        { label: 'Avg Sales', color: colors.lime }
+      ];
+
+      legendItems.forEach((item, i) => {
+        const xPos = (i - 0.5) * 100;
+        legend.append('circle')
+          .attr('cx', xPos)
+          .attr('cy', 0)
+          .attr('r', 5)
+          .attr('fill', item.color);
+
+        legend.append('text')
+          .attr('x', xPos + 10)
+          .attr('y', 4)
+          .attr('fill', colors.textSecondary)
+          .attr('font-size', '10px')
+          .text(item.label);
+      });
+    }
+
+    function createSankey() {
+      const container = document.getElementById('chart-sankey');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 20, right: 20, bottom: 50, left: 20 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Top publishers
+      const topPublishers = ['Nintendo', 'Electronic Arts', 'Activision', 'Sony', 'Ubisoft'];
+      const topPlatforms = ['PS2', 'X360', 'PS3', 'Wii', 'DS'];
+      const topGenres = ['Action', 'Sports', 'Shooter', 'Role-Playing', 'Misc'];
+
+      // Build nodes
+      const nodes = [
+        ...topPublishers.map(p => ({ name: p, category: 'publisher' })),
+        ...topPlatforms.map(p => ({ name: p, category: 'platform' })),
+        ...topGenres.map(g => ({ name: g, category: 'genre' }))
+      ];
+
+      const nodeIndex = {};
+      nodes.forEach((n, i) => nodeIndex[n.name] = i);
+
+      // Build links
+      const links = [];
+
+      // Publisher -> Platform
+      topPublishers.forEach(pub => {
+        topPlatforms.forEach(plat => {
+          const sales = d3.sum(state.data.filter(d => d.publisher === pub && d.platform === plat), d => d.globalSales);
+          if (sales > 5) {
+            links.push({ source: nodeIndex[pub], target: nodeIndex[plat], value: sales });
+          }
+        });
+      });
+
+      // Platform -> Genre
+      topPlatforms.forEach(plat => {
+        topGenres.forEach(genre => {
+          const sales = d3.sum(state.data.filter(d => d.platform === plat && d.genre === genre), d => d.globalSales);
+          if (sales > 5) {
+            links.push({ source: nodeIndex[plat], target: nodeIndex[genre], value: sales });
+          }
+        });
+      });
+
+      // Simple sankey-like layout (manual positioning)
+      const categoryX = { publisher: 0, platform: innerWidth / 2, genre: innerWidth };
+      const categoryColors = { publisher: colors.lime, platform: colors.cyan, genre: colors.amber };
+
+      // Position nodes
+      const categories = ['publisher', 'platform', 'genre'];
+      categories.forEach(cat => {
+        const catNodes = nodes.filter(n => n.category === cat);
+        const nodeHeight = innerHeight / catNodes.length;
+        catNodes.forEach((n, i) => {
+          n.x = categoryX[cat];
+          n.y = i * nodeHeight + nodeHeight / 2;
+          n.color = categoryColors[cat];
+        });
+      });
+
+      // Draw links
+      links.forEach(link => {
+        const source = nodes[link.source];
+        const target = nodes[link.target];
+
+        g.append('path')
+          .attr('d', `M${source.x + 40},${source.y} C${(source.x + target.x) / 2},${source.y} ${(source.x + target.x) / 2},${target.y} ${target.x - 40},${target.y}`)
+          .attr('fill', 'none')
+          .attr('stroke', source.color)
+          .attr('stroke-width', Math.max(1, link.value / 30))
+          .attr('opacity', 0.3);
+      });
+
+      // Draw nodes
+      nodes.forEach(node => {
+        g.append('rect')
+          .attr('x', node.x - 40)
+          .attr('y', node.y - 12)
+          .attr('width', 80)
+          .attr('height', 24)
+          .attr('fill', node.color)
+          .attr('opacity', 0.8)
+          .attr('rx', 4);
+
+        g.append('text')
+          .attr('x', node.x)
+          .attr('y', node.y + 4)
+          .attr('text-anchor', 'middle')
+          .attr('fill', colors.bg)
+          .attr('font-size', '9px')
+          .attr('font-weight', '600')
+          .text(node.name);
+      });
+
+      // Column labels
+      g.append('text').attr('x', 0).attr('y', -5).attr('text-anchor', 'middle').attr('fill', colors.lime).attr('font-size', '10px').text('Publishers');
+      g.append('text').attr('x', innerWidth / 2).attr('y', -5).attr('text-anchor', 'middle').attr('fill', colors.cyan).attr('font-size', '10px').text('Platforms');
+      g.append('text').attr('x', innerWidth).attr('y', -5).attr('text-anchor', 'middle').attr('fill', colors.amber).attr('font-size', '10px').text('Genres');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 15})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Flow width = sales volume');
+    }
+
+    function createBoxPlot() {
+      const container = document.getElementById('chart-boxplot');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 20, bottom: 60, left: 50 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Top 8 publishers
+      const publisherSales = d3.rollup(state.data, v => d3.sum(v, d => d.globalSales), d => d.publisher);
+      const topPublishers = Array.from(publisherSales)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(d => d[0]);
+
+      const publisherColors = [colors.lime, colors.cyan, colors.amber, colors.coral, colors.emerald, colors.lime, colors.cyan, colors.amber];
+
+      // Calculate box plot stats for each publisher
+      const boxData = topPublishers.map((pub, i) => {
+        const sales = state.data.filter(d => d.publisher === pub).map(d => d.globalSales).sort((a, b) => a - b);
+        const q1 = d3.quantile(sales, 0.25);
+        const median = d3.quantile(sales, 0.5);
+        const q3 = d3.quantile(sales, 0.75);
+        const iqr = q3 - q1;
+        const min = Math.max(d3.min(sales), q1 - 1.5 * iqr);
+        const max = Math.min(d3.max(sales), q3 + 1.5 * iqr);
+        return { publisher: pub, q1, median, q3, min, max, color: publisherColors[i] };
+      });
+
+      const x = d3.scaleBand()
+        .domain(topPublishers)
+        .range([0, innerWidth])
+        .padding(0.3);
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(boxData, d => d.max) * 1.1])
+        .range([innerHeight, 0]);
+
+      const boxWidth = x.bandwidth();
+
+      boxData.forEach(d => {
+        const xPos = x(d.publisher);
+
+        // Vertical line (whiskers)
+        g.append('line')
+          .attr('x1', xPos + boxWidth / 2)
+          .attr('x2', xPos + boxWidth / 2)
+          .attr('y1', y(d.min))
+          .attr('y2', y(d.max))
+          .attr('stroke', d.color)
+          .attr('stroke-width', 1);
+
+        // Box
+        g.append('rect')
+          .attr('x', xPos)
+          .attr('y', y(d.q3))
+          .attr('width', boxWidth)
+          .attr('height', y(d.q1) - y(d.q3))
+          .attr('fill', d.color)
+          .attr('opacity', 0.5)
+          .attr('stroke', d.color)
+          .attr('stroke-width', 1);
+
+        // Median line
+        g.append('line')
+          .attr('x1', xPos)
+          .attr('x2', xPos + boxWidth)
+          .attr('y1', y(d.median))
+          .attr('y2', y(d.median))
+          .attr('stroke', d.color)
+          .attr('stroke-width', 2);
+
+        // Whisker caps
+        g.append('line')
+          .attr('x1', xPos + boxWidth * 0.25)
+          .attr('x2', xPos + boxWidth * 0.75)
+          .attr('y1', y(d.min))
+          .attr('y2', y(d.min))
+          .attr('stroke', d.color);
+
+        g.append('line')
+          .attr('x1', xPos + boxWidth * 0.25)
+          .attr('x2', xPos + boxWidth * 0.75)
+          .attr('y1', y(d.max))
+          .attr('y2', y(d.max))
+          .attr('stroke', d.color);
+      });
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '8px')
+        .attr('transform', 'rotate(-35)')
+        .attr('text-anchor', 'end');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y).ticks(5).tickFormat(d => d + 'M'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 15})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Box = IQR, Line = Median');
     }
 
     // ========================================
