@@ -4877,10 +4877,867 @@
     // ========================================
     // Section 5: Franchise Analysis
     // ========================================
+
+    // Franchise detection patterns (shared across all franchise charts)
+    const franchisePatterns = {
+      'Mario': /\bmario\b/i,
+      'Pokemon': /pokemon|pokémon/i,
+      'Call of Duty': /call of duty/i,
+      'FIFA': /^fifa\b/i,
+      'Grand Theft Auto': /grand theft auto|^gta\b/i,
+      'Need for Speed': /need for speed/i,
+      'Final Fantasy': /final fantasy/i,
+      'Zelda': /zelda/i,
+      'Madden': /madden/i,
+      'Halo': /\bhalo\b/i,
+      'Assassin\'s Creed': /assassin'?s creed/i,
+      'Sonic': /\bsonic\b/i,
+      'Resident Evil': /resident evil/i,
+      'Tomb Raider': /tomb raider/i,
+      'Metal Gear': /metal gear/i
+    };
+
+    function getFranchiseData() {
+      const franchiseData = {};
+
+      state.data.forEach(game => {
+        for (const [franchise, pattern] of Object.entries(franchisePatterns)) {
+          if (pattern.test(game.name)) {
+            if (!franchiseData[franchise]) {
+              franchiseData[franchise] = {
+                name: franchise,
+                games: [],
+                totalSales: 0,
+                naSales: 0,
+                euSales: 0,
+                jpSales: 0,
+                otherSales: 0,
+                platforms: new Set(),
+                genres: new Set(),
+                publishers: new Set(),
+                years: []
+              };
+            }
+            franchiseData[franchise].games.push(game);
+            franchiseData[franchise].totalSales += game.globalSales;
+            franchiseData[franchise].naSales += game.naSales;
+            franchiseData[franchise].euSales += game.euSales;
+            franchiseData[franchise].jpSales += game.jpSales;
+            franchiseData[franchise].otherSales += game.otherSales;
+            franchiseData[franchise].platforms.add(game.platform);
+            franchiseData[franchise].genres.add(game.genre);
+            franchiseData[franchise].publishers.add(game.publisher);
+            if (game.year) franchiseData[franchise].years.push(game.year);
+            break;
+          }
+        }
+      });
+
+      return Object.values(franchiseData).sort((a, b) => b.totalSales - a.totalSales);
+    }
+
     function initFranchiseSection() {
-      // Placeholder - charts will be implemented in Milestone 6
-      document.querySelectorAll('#franchise .loading').forEach(el => {
-        el.textContent = 'Coming soon...';
+      createFranchiseBubble();
+      createFranchiseGrowth();
+      createFranchisePlatforms();
+      createFranchiseGenres();
+      createFranchiseTimeline();
+      createFranchiseRegions();
+      createFranchiseQuality();
+      createFranchiseNetwork();
+    }
+
+    function createFranchiseBubble() {
+      const container = document.getElementById('chart-franchise-bubble');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 30, bottom: 50, left: 60 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const franchises = getFranchiseData();
+      const franchiseColors = [colors.lime, colors.cyan, colors.amber, colors.coral, colors.emerald];
+
+      const x = d3.scaleLinear()
+        .domain([0, d3.max(franchises, d => d.games.length) * 1.1])
+        .range([0, innerWidth]);
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(franchises, d => d.totalSales) * 1.1])
+        .range([innerHeight, 0]);
+
+      const size = d3.scaleSqrt()
+        .domain([0, d3.max(franchises, d => d.totalSales / d.games.length)])
+        .range([8, 40]);
+
+      // Bubbles
+      g.selectAll('.bubble')
+        .data(franchises)
+        .join('circle')
+        .attr('class', 'bubble')
+        .attr('cx', d => x(d.games.length))
+        .attr('cy', d => y(d.totalSales))
+        .attr('r', d => size(d.totalSales / d.games.length))
+        .attr('fill', (d, i) => franchiseColors[i % 5])
+        .attr('opacity', 0.7)
+        .attr('stroke', (d, i) => franchiseColors[i % 5])
+        .attr('stroke-width', 2);
+
+      // Labels for top franchises
+      franchises.slice(0, 8).forEach((d, i) => {
+        g.append('text')
+          .attr('x', x(d.games.length))
+          .attr('y', y(d.totalSales) - size(d.totalSales / d.games.length) - 5)
+          .attr('text-anchor', 'middle')
+          .attr('fill', colors.textPrimary)
+          .attr('font-size', '9px')
+          .text(d.name);
+      });
+
+      // Axes
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).ticks(6))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      g.append('g')
+        .call(d3.axisLeft(y).ticks(6).tickFormat(d => d + 'M'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Axis labels
+      g.append('text')
+        .attr('x', innerWidth / 2)
+        .attr('y', innerHeight + 35)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px')
+        .text('Number of Games');
+
+      g.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -innerHeight / 2)
+        .attr('y', -45)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px')
+        .text('Total Sales (M)');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 12})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Bubble size = avg sales per game');
+    }
+
+    function createFranchiseGrowth() {
+      const container = document.getElementById('chart-franchise-lines');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 100, bottom: 50, left: 50 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const franchises = getFranchiseData().slice(0, 10);
+      const franchiseColors = [colors.lime, colors.cyan, colors.amber, colors.coral, colors.emerald,
+        colors.lime, colors.cyan, colors.amber, colors.coral, colors.emerald];
+
+      // Get year range
+      const allYears = state.data.filter(d => d.year).map(d => d.year);
+      const yearRange = d3.range(d3.min(allYears), d3.max(allYears) + 1);
+
+      // Calculate cumulative sales by year for each franchise
+      const franchiseYearData = franchises.map(f => {
+        let cumulative = 0;
+        const yearSales = yearRange.map(year => {
+          const yearGames = f.games.filter(g => g.year === year);
+          cumulative += d3.sum(yearGames, g => g.globalSales);
+          return { year, sales: cumulative };
+        });
+        return { name: f.name, data: yearSales };
+      });
+
+      const x = d3.scaleLinear()
+        .domain(d3.extent(yearRange))
+        .range([0, innerWidth]);
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(franchiseYearData, f => d3.max(f.data, d => d.sales))])
+        .range([innerHeight, 0]);
+
+      const line = d3.line()
+        .x(d => x(d.year))
+        .y(d => y(d.sales))
+        .curve(d3.curveMonotoneX);
+
+      // Draw lines
+      franchiseYearData.forEach((f, i) => {
+        g.append('path')
+          .datum(f.data)
+          .attr('fill', 'none')
+          .attr('stroke', franchiseColors[i])
+          .attr('stroke-width', 2)
+          .attr('opacity', 0.8)
+          .attr('d', line);
+
+        // End label
+        const lastPoint = f.data[f.data.length - 1];
+        g.append('text')
+          .attr('x', innerWidth + 5)
+          .attr('y', y(lastPoint.sales))
+          .attr('fill', franchiseColors[i])
+          .attr('font-size', '9px')
+          .attr('dominant-baseline', 'middle')
+          .text(f.name);
+      });
+
+      // Axes
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).tickFormat(d3.format('d')).ticks(8))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      g.append('g')
+        .call(d3.axisLeft(y).ticks(5).tickFormat(d => d + 'M'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+    }
+
+    function createFranchisePlatforms() {
+      const container = document.getElementById('chart-franchise-platforms');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 20, bottom: 60, left: 100 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const franchises = getFranchiseData().slice(0, 10);
+      const topPlatforms = ['PS2', 'Wii', 'X360', 'PS3', 'DS', 'PS', 'GBA', 'PC'];
+      const platformColors = {
+        'PS2': colors.cyan, 'Wii': colors.lime, 'X360': colors.emerald, 'PS3': colors.cyan,
+        'DS': colors.coral, 'PS': colors.cyan, 'GBA': colors.coral, 'PC': colors.amber
+      };
+
+      // Calculate platform sales for each franchise
+      const franchisePlatformData = franchises.map(f => {
+        const platformSales = {};
+        topPlatforms.forEach(p => {
+          platformSales[p] = d3.sum(f.games.filter(g => g.platform === p), g => g.globalSales);
+        });
+        return { name: f.name, ...platformSales };
+      });
+
+      const y = d3.scaleBand()
+        .domain(franchises.map(f => f.name))
+        .range([0, innerHeight])
+        .padding(0.2);
+
+      const x = d3.scaleLinear()
+        .domain([0, d3.max(franchisePlatformData, d => d3.sum(topPlatforms, p => d[p]))])
+        .range([0, innerWidth]);
+
+      const stack = d3.stack()
+        .keys(topPlatforms)
+        .order(d3.stackOrderNone);
+
+      const series = stack(franchisePlatformData);
+
+      // Draw stacked bars
+      g.selectAll('g.platform')
+        .data(series)
+        .join('g')
+        .attr('class', 'platform')
+        .attr('fill', d => platformColors[d.key] || colors.textTertiary)
+        .attr('opacity', 0.8)
+        .selectAll('rect')
+        .data(d => d)
+        .join('rect')
+        .attr('y', d => y(d.data.name))
+        .attr('x', d => x(d[0]))
+        .attr('width', d => x(d[1]) - x(d[0]))
+        .attr('height', y.bandwidth());
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '9px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).ticks(5).tickFormat(d => d + 'M'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 15})`);
+
+      const legendItems = topPlatforms.slice(0, 6);
+      const legendWidth = legendItems.length * 55;
+      const startX = -legendWidth / 2;
+
+      legendItems.forEach((p, i) => {
+        legend.append('circle')
+          .attr('cx', startX + i * 55)
+          .attr('cy', 0)
+          .attr('r', 4)
+          .attr('fill', platformColors[p]);
+
+        legend.append('text')
+          .attr('x', startX + i * 55 + 8)
+          .attr('y', 4)
+          .attr('fill', colors.textSecondary)
+          .attr('font-size', '9px')
+          .text(p);
+      });
+    }
+
+    function createFranchiseGenres() {
+      const container = document.getElementById('chart-franchise-genres');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 50, right: 20, bottom: 50, left: 100 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const franchises = getFranchiseData().slice(0, 10);
+      const allGenres = [...new Set(state.data.map(d => d.genre))].filter(Boolean).slice(0, 8);
+
+      const y = d3.scaleBand()
+        .domain(franchises.map(f => f.name))
+        .range([0, innerHeight])
+        .padding(0.1);
+
+      const x = d3.scaleBand()
+        .domain(allGenres)
+        .range([0, innerWidth])
+        .padding(0.1);
+
+      const maxSales = d3.max(franchises, f =>
+        d3.max(allGenres, g => d3.sum(f.games.filter(game => game.genre === g), game => game.globalSales))
+      );
+
+      const colorScale = d3.scaleSequential(d3.interpolateViridis)
+        .domain([0, maxSales]);
+
+      // Draw heatmap cells
+      franchises.forEach(f => {
+        allGenres.forEach(genre => {
+          const sales = d3.sum(f.games.filter(game => game.genre === genre), game => game.globalSales);
+          if (sales > 0) {
+            g.append('rect')
+              .attr('x', x(genre))
+              .attr('y', y(f.name))
+              .attr('width', x.bandwidth())
+              .attr('height', y.bandwidth())
+              .attr('fill', sales > maxSales * 0.5 ? colors.lime : sales > maxSales * 0.2 ? colors.cyan : colors.amber)
+              .attr('opacity', Math.min(0.9, sales / maxSales + 0.2))
+              .attr('rx', 2);
+          }
+        });
+      });
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '9px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${-5})`)
+        .call(d3.axisTop(x))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '8px')
+        .attr('transform', 'rotate(-35)')
+        .attr('text-anchor', 'start');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 15})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Intensity = sales in that genre');
+    }
+
+    function createFranchiseTimeline() {
+      const container = document.getElementById('chart-franchise-timeline');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 20, bottom: 50, left: 100 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const franchises = getFranchiseData().slice(0, 10);
+      const franchiseColors = [colors.lime, colors.cyan, colors.amber, colors.coral, colors.emerald,
+        colors.lime, colors.cyan, colors.amber, colors.coral, colors.emerald];
+
+      const allYears = state.data.filter(d => d.year).map(d => d.year);
+      const x = d3.scaleLinear()
+        .domain([d3.min(allYears), d3.max(allYears)])
+        .range([0, innerWidth]);
+
+      const y = d3.scaleBand()
+        .domain(franchises.map(f => f.name))
+        .range([0, innerHeight])
+        .padding(0.3);
+
+      const sizeScale = d3.scaleSqrt()
+        .domain([0, d3.max(state.data, d => d.globalSales)])
+        .range([2, 12]);
+
+      // Draw timeline for each franchise
+      franchises.forEach((f, fIdx) => {
+        // Timeline line
+        const minYear = d3.min(f.years);
+        const maxYear = d3.max(f.years);
+
+        g.append('line')
+          .attr('x1', x(minYear))
+          .attr('x2', x(maxYear))
+          .attr('y1', y(f.name) + y.bandwidth() / 2)
+          .attr('y2', y(f.name) + y.bandwidth() / 2)
+          .attr('stroke', franchiseColors[fIdx])
+          .attr('stroke-width', 2)
+          .attr('opacity', 0.3);
+
+        // Game releases
+        f.games.filter(g => g.year).forEach(game => {
+          g.append('circle')
+            .attr('cx', x(game.year))
+            .attr('cy', y(f.name) + y.bandwidth() / 2)
+            .attr('r', sizeScale(game.globalSales))
+            .attr('fill', franchiseColors[fIdx])
+            .attr('opacity', 0.7);
+        });
+      });
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '9px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).tickFormat(d3.format('d')).ticks(8))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 15})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Circle size = game sales');
+    }
+
+    function createFranchiseRegions() {
+      const container = document.getElementById('chart-franchise-regions');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 20, bottom: 50, left: 100 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const franchises = getFranchiseData().slice(0, 10);
+      const regions = [
+        { key: 'naSales', label: 'NA', color: colors.lime },
+        { key: 'euSales', label: 'EU', color: colors.cyan },
+        { key: 'jpSales', label: 'JP', color: colors.coral },
+        { key: 'otherSales', label: 'Other', color: colors.amber }
+      ];
+
+      const y = d3.scaleBand()
+        .domain(franchises.map(f => f.name))
+        .range([0, innerHeight])
+        .padding(0.2);
+
+      const x = d3.scaleLinear()
+        .domain([0, 100])
+        .range([0, innerWidth]);
+
+      // Draw stacked bars (normalized to 100%)
+      franchises.forEach(f => {
+        let cumulative = 0;
+        regions.forEach(r => {
+          const percent = (f[r.key] / f.totalSales) * 100;
+          g.append('rect')
+            .attr('x', x(cumulative))
+            .attr('y', y(f.name))
+            .attr('width', x(percent))
+            .attr('height', y.bandwidth())
+            .attr('fill', r.color)
+            .attr('opacity', 0.8);
+          cumulative += percent;
+        });
+      });
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '9px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).ticks(5).tickFormat(d => d + '%'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 15})`);
+
+      const legendWidth = regions.length * 60;
+      const startX = -legendWidth / 2;
+
+      regions.forEach((r, i) => {
+        legend.append('circle')
+          .attr('cx', startX + i * 60)
+          .attr('cy', 0)
+          .attr('r', 4)
+          .attr('fill', r.color);
+
+        legend.append('text')
+          .attr('x', startX + i * 60 + 8)
+          .attr('y', 4)
+          .attr('fill', colors.textSecondary)
+          .attr('font-size', '9px')
+          .text(r.label);
+      });
+    }
+
+    function createFranchiseQuality() {
+      const container = document.getElementById('chart-franchise-quality');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 30, bottom: 50, left: 50 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const franchises = getFranchiseData().slice(0, 8);
+      const franchiseColors = [colors.lime, colors.cyan, colors.amber, colors.coral, colors.emerald,
+        colors.lime, colors.cyan, colors.amber];
+
+      // Calculate avg sales per installment over time
+      const allYears = state.data.filter(d => d.year).map(d => d.year);
+      const yearRange = d3.range(d3.min(allYears), d3.max(allYears) + 1);
+
+      const franchiseAvgData = franchises.map(f => {
+        const yearAvg = [];
+        yearRange.forEach(year => {
+          const yearGames = f.games.filter(g => g.year === year);
+          if (yearGames.length > 0) {
+            yearAvg.push({ year, avg: d3.mean(yearGames, g => g.globalSales), count: yearGames.length });
+          }
+        });
+        return { name: f.name, data: yearAvg };
+      });
+
+      const x = d3.scaleLinear()
+        .domain(d3.extent(yearRange))
+        .range([0, innerWidth]);
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(franchiseAvgData, f => d3.max(f.data, d => d.avg))])
+        .range([innerHeight, 0]);
+
+      const line = d3.line()
+        .x(d => x(d.year))
+        .y(d => y(d.avg))
+        .curve(d3.curveMonotoneX);
+
+      // Draw connected scatterplots
+      franchiseAvgData.forEach((f, i) => {
+        if (f.data.length > 1) {
+          g.append('path')
+            .datum(f.data)
+            .attr('fill', 'none')
+            .attr('stroke', franchiseColors[i])
+            .attr('stroke-width', 1.5)
+            .attr('opacity', 0.5)
+            .attr('d', line);
+        }
+
+        f.data.forEach(d => {
+          g.append('circle')
+            .attr('cx', x(d.year))
+            .attr('cy', y(d.avg))
+            .attr('r', 4)
+            .attr('fill', franchiseColors[i])
+            .attr('opacity', 0.8);
+        });
+      });
+
+      // Axes
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).tickFormat(d3.format('d')).ticks(8))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      g.append('g')
+        .call(d3.axisLeft(y).ticks(5).tickFormat(d => d.toFixed(1) + 'M'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 15})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Avg sales per release by year');
+    }
+
+    function createFranchiseNetwork() {
+      const container = document.getElementById('chart-franchise-network');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const franchises = getFranchiseData().slice(0, 8);
+
+      // Build network data
+      const nodes = [];
+      const links = [];
+      const nodeMap = {};
+
+      // Add franchise nodes
+      franchises.forEach((f, i) => {
+        const id = 'f_' + f.name;
+        nodes.push({ id, name: f.name, type: 'franchise', sales: f.totalSales });
+        nodeMap[id] = nodes.length - 1;
+      });
+
+      // Add publisher nodes and links
+      const publishers = new Set();
+      franchises.forEach(f => {
+        f.publishers.forEach(p => publishers.add(p));
+      });
+
+      [...publishers].slice(0, 6).forEach(p => {
+        const id = 'p_' + p;
+        if (!nodeMap[id]) {
+          nodes.push({ id, name: p, type: 'publisher', sales: 0 });
+          nodeMap[id] = nodes.length - 1;
+        }
+      });
+
+      // Add links
+      franchises.forEach(f => {
+        [...f.publishers].slice(0, 2).forEach(p => {
+          const pubId = 'p_' + p;
+          if (nodeMap[pubId] !== undefined) {
+            links.push({ source: nodeMap['f_' + f.name], target: nodeMap[pubId] });
+          }
+        });
+      });
+
+      const colorMap = {
+        franchise: colors.lime,
+        publisher: colors.coral
+      };
+
+      const simulation = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).distance(80))
+        .force('charge', d3.forceManyBody().strength(-200))
+        .force('center', d3.forceCenter(width / 2, height / 2 - 15))
+        .force('collision', d3.forceCollide().radius(30));
+
+      // Draw links
+      const link = svg.selectAll('.link')
+        .data(links)
+        .join('line')
+        .attr('class', 'link')
+        .attr('stroke', colors.border)
+        .attr('stroke-opacity', 0.4)
+        .attr('stroke-width', 1);
+
+      // Draw nodes
+      const node = svg.selectAll('.node')
+        .data(nodes)
+        .join('g')
+        .attr('class', 'node');
+
+      node.append('circle')
+        .attr('r', d => d.type === 'franchise' ? 20 : 15)
+        .attr('fill', d => colorMap[d.type])
+        .attr('opacity', 0.8);
+
+      node.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('dy', '0.35em')
+        .attr('fill', colors.bg)
+        .attr('font-size', '8px')
+        .attr('font-weight', '600')
+        .text(d => d.name.substring(0, 8));
+
+      simulation.on('tick', () => {
+        link
+          .attr('x1', d => d.source.x)
+          .attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x)
+          .attr('y2', d => d.target.y);
+
+        node.attr('transform', d => `translate(${d.x},${d.y})`);
+      });
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 15})`);
+
+      const legendItems = [
+        { label: 'Franchise', color: colors.lime },
+        { label: 'Publisher', color: colors.coral }
+      ];
+
+      legendItems.forEach((item, i) => {
+        const xPos = (i - 0.5) * 80;
+        legend.append('circle')
+          .attr('cx', xPos)
+          .attr('cy', 0)
+          .attr('r', 4)
+          .attr('fill', item.color);
+
+        legend.append('text')
+          .attr('x', xPos + 8)
+          .attr('y', 4)
+          .attr('fill', colors.textSecondary)
+          .attr('font-size', '9px')
+          .text(item.label);
       });
     }
 
