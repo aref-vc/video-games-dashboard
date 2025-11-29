@@ -1646,7 +1646,7 @@
       container.innerHTML = '';
 
       const rect = container.getBoundingClientRect();
-      const margin = { top: 20, right: 60, bottom: 30, left: 50 };
+      const margin = { top: 20, right: 20, bottom: 40, left: 80 };
       const width = rect.width - margin.left - margin.right;
       const height = rect.height - margin.top - margin.bottom;
 
@@ -1658,101 +1658,87 @@
       const g = svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
-      // Aggregate by year
+      // Get unique genres and years
+      const genres = [...new Set(state.data.map(d => d.genre))].sort();
       const years = d3.range(1980, 2021);
-      const yearData = years.map(year => {
-        const games = state.data.filter(d => d.year === year);
-        return {
-          year,
-          count: games.length,
-          sales: d3.sum(games, d => d.globalSales)
-        };
+
+      // Aggregate sales by year and genre
+      const heatmapData = [];
+      genres.forEach(genre => {
+        years.forEach(year => {
+          const games = state.data.filter(d => d.year === year && d.genre === genre);
+          const sales = d3.sum(games, d => d.globalSales);
+          heatmapData.push({ genre, year, sales, count: games.length });
+        });
       });
 
-      const cellWidth = width / years.length;
-      const cellHeight = height / 2 - 10;
+      // Scales
+      const x = d3.scaleBand()
+        .domain(years)
+        .range([0, width])
+        .padding(0.02);
 
-      // Color scales
-      const countColor = d3.scaleSequential(d3.interpolateGreens)
-        .domain([0, d3.max(yearData, d => d.count)]);
+      const y = d3.scaleBand()
+        .domain(genres)
+        .range([0, height])
+        .padding(0.02);
 
-      const salesColor = d3.scaleSequential(d3.interpolateBlues)
-        .domain([0, d3.max(yearData, d => d.sales)]);
+      // Color scale (log for better distribution)
+      const maxSales = d3.max(heatmapData, d => d.sales);
+      const colorScale = d3.scaleSequential(d3.interpolateYlGnBu)
+        .domain([0, Math.sqrt(maxSales)]);
 
-      // Draw count cells (top row)
-      g.selectAll('.count-cell')
-        .data(yearData)
+      // Draw cells
+      g.selectAll('.heatmap-cell')
+        .data(heatmapData)
         .join('rect')
-        .attr('class', 'count-cell')
-        .attr('x', (d, i) => i * cellWidth)
-        .attr('y', 0)
-        .attr('width', cellWidth - 1)
-        .attr('height', cellHeight)
-        .attr('fill', d => countColor(d.count))
-        .attr('rx', 2)
+        .attr('class', 'heatmap-cell')
+        .attr('x', d => x(d.year))
+        .attr('y', d => y(d.genre))
+        .attr('width', x.bandwidth())
+        .attr('height', y.bandwidth())
+        .attr('fill', d => d.sales > 0 ? colorScale(Math.sqrt(d.sales)) : colors.bgSecondary)
+        .attr('rx', 1)
         .on('mouseover', function(event, d) {
+          d3.select(this).attr('stroke', colors.lime).attr('stroke-width', 2);
           showTooltip(event, `
-            <div class="tooltip-title">${d.year}</div>
+            <div class="tooltip-title">${d.genre} - ${d.year}</div>
             <div class="tooltip-row">
-              <span class="tooltip-label">Games Released</span>
-              <span class="tooltip-value">${d.count.toLocaleString()}</span>
+              <span class="tooltip-label">Sales</span>
+              <span class="tooltip-value">$${d.sales.toFixed(2)}M</span>
+            </div>
+            <div class="tooltip-row">
+              <span class="tooltip-label">Games</span>
+              <span class="tooltip-value">${d.count}</span>
             </div>
           `);
         })
-        .on('mouseout', hideTooltip);
+        .on('mouseout', function() {
+          d3.select(this).attr('stroke', 'none');
+          hideTooltip();
+        });
 
-      // Draw sales cells (bottom row)
-      g.selectAll('.sales-cell')
-        .data(yearData)
-        .join('rect')
-        .attr('class', 'sales-cell')
-        .attr('x', (d, i) => i * cellWidth)
-        .attr('y', cellHeight + 20)
-        .attr('width', cellWidth - 1)
-        .attr('height', cellHeight)
-        .attr('fill', d => salesColor(d.sales))
-        .attr('rx', 2)
-        .on('mouseover', function(event, d) {
-          showTooltip(event, `
-            <div class="tooltip-title">${d.year}</div>
-            <div class="tooltip-row">
-              <span class="tooltip-label">Total Sales</span>
-              <span class="tooltip-value">${d.sales.toFixed(1)}M</span>
-            </div>
-          `);
-        })
-        .on('mouseout', hideTooltip);
-
-      // Labels
-      g.append('text')
-        .attr('x', -10)
-        .attr('y', cellHeight / 2)
-        .attr('dy', '0.35em')
-        .attr('text-anchor', 'end')
+      // X Axis (years - show every 5 years)
+      g.append('g')
+        .attr('class', 'axis')
+        .attr('transform', `translate(0,${height})`)
+        .call(d3.axisBottom(x)
+          .tickValues(years.filter(y => y % 5 === 0))
+          .tickSize(0))
+        .selectAll('text')
         .attr('fill', colors.textTertiary)
-        .attr('font-size', '10px')
-        .text('Releases');
+        .attr('font-size', '9px');
 
-      g.append('text')
-        .attr('x', -10)
-        .attr('y', cellHeight + 20 + cellHeight / 2)
-        .attr('dy', '0.35em')
-        .attr('text-anchor', 'end')
+      // Y Axis (genres)
+      g.append('g')
+        .attr('class', 'axis')
+        .call(d3.axisLeft(y).tickSize(0))
+        .selectAll('text')
         .attr('fill', colors.textTertiary)
-        .attr('font-size', '10px')
-        .text('Sales');
+        .attr('font-size', '9px');
 
-      // Year labels (every 5 years)
-      years.filter((y, i) => y % 5 === 0).forEach(year => {
-        const i = year - 1985;
-        g.append('text')
-          .attr('x', i * cellWidth + cellWidth / 2)
-          .attr('y', height + 15)
-          .attr('text-anchor', 'middle')
-          .attr('fill', colors.textTertiary)
-          .attr('font-size', '10px')
-          .text(year);
-      });
+      // Remove axis lines
+      g.selectAll('.domain').remove();
     }
 
     function createSunburst() {
@@ -3376,9 +3362,11 @@
         .sort((a, b) => b.globalSales - a.globalSales)
         .slice(0, 500);
 
-      // X scale (log for sales)
+      // X scale (log for sales) - start at minimum data value
+      const minSales = d3.min(sampleData, d => d.globalSales);
+      const maxSales = d3.max(sampleData, d => d.globalSales);
       const x = d3.scaleLog()
-        .domain([0.1, d3.max(sampleData, d => d.globalSales)])
+        .domain([minSales * 0.9, maxSales * 1.1])
         .range([0, width]);
 
       // Simulation for beeswarm
@@ -3523,16 +3511,22 @@
           hideTooltip();
         });
 
-      // Genre labels (for larger cells)
-      cell.filter(d => (d.x1 - d.x0) > 40 && (d.y1 - d.y0) > 20)
+      // Genre labels (for larger cells) - show full name if space permits
+      cell.filter(d => (d.x1 - d.x0) > 30 && (d.y1 - d.y0) > 16)
         .append('text')
         .attr('x', 4)
         .attr('y', 12)
         .attr('fill', colors.bg)
         .attr('font-size', '9px')
-        .text(d => d.data.name.substring(0, 6));
+        .text(d => {
+          const cellWidth = d.x1 - d.x0;
+          const name = d.data.name;
+          // Estimate ~6px per character at 9px font
+          const maxChars = Math.floor((cellWidth - 8) / 6);
+          return maxChars >= name.length ? name : name.substring(0, Math.max(3, maxChars));
+        });
 
-      // Publisher labels
+      // Publisher labels - show full name if space permits
       svg.selectAll('.pub-label')
         .data(root.children)
         .join('text')
@@ -3542,7 +3536,13 @@
         .attr('fill', colors.textPrimary)
         .attr('font-size', '10px')
         .attr('font-weight', '600')
-        .text(d => d.data.name.substring(0, 10));
+        .text(d => {
+          const cellWidth = d.x1 - d.x0;
+          const name = d.data.name;
+          // Estimate ~6px per character at 10px font
+          const maxChars = Math.floor((cellWidth - 8) / 6);
+          return maxChars >= name.length ? name : name.substring(0, Math.max(3, maxChars));
+        });
     }
 
     function createParallelCoords() {
