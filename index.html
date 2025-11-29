@@ -153,6 +153,25 @@
       font-weight: 600;
     }
 
+    .tab .progress-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 2px;
+      background: var(--lime);
+      width: 0%;
+      transition: width 0.1s ease;
+    }
+
+    .tab {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .tab.active .progress-bar {
+      background: var(--bg-main);
+    }
+
     /* ========================================
        Main Content
        ======================================== */
@@ -205,6 +224,12 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .chart-card:hover {
+      border-color: var(--border-light);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
     }
 
     .chart-header {
@@ -408,14 +433,14 @@
   </header>
 
   <nav class="tab-nav">
-    <button class="tab active" data-section="evolution">Industry Evolution</button>
-    <button class="tab" data-section="regional">Regional Markets</button>
-    <button class="tab" data-section="business">Business Intelligence</button>
-    <button class="tab" data-section="insights">Key Insights</button>
-    <button class="tab" data-section="franchise">Franchise Analysis</button>
-    <button class="tab" data-section="decades">Decade Comparison</button>
-    <button class="tab" data-section="platforms">Platform Deep Dive</button>
-    <button class="tab" data-section="gems">Hidden Gems</button>
+    <button class="tab active" data-section="evolution">Industry Evolution<span class="progress-bar"></span></button>
+    <button class="tab" data-section="regional">Regional Markets<span class="progress-bar"></span></button>
+    <button class="tab" data-section="business">Business Intelligence<span class="progress-bar"></span></button>
+    <button class="tab" data-section="insights">Key Insights<span class="progress-bar"></span></button>
+    <button class="tab" data-section="franchise">Franchise Analysis<span class="progress-bar"></span></button>
+    <button class="tab" data-section="decades">Decade Comparison<span class="progress-bar"></span></button>
+    <button class="tab" data-section="platforms">Platform Deep Dive<span class="progress-bar"></span></button>
+    <button class="tab" data-section="gems">Hidden Gems<span class="progress-bar"></span></button>
   </nav>
 
   <main>
@@ -1158,7 +1183,7 @@
 
   <footer>
     <span>Data: Video Games Sales Dataset (16,598 games)</span>
-    <span>Built with D3.js</span>
+    <span>64 Interactive Visualizations | 8 Sections | Built with D3.js</span>
   </footer>
 
   <!-- Tooltip -->
@@ -1260,14 +1285,43 @@
 
         // Update sections
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-        document.getElementById(section).classList.add('active');
+        const sectionEl = document.getElementById(section);
+        sectionEl.classList.add('active');
 
         state.activeSection = section;
 
         // Initialize charts for this section if not done
         if (!state.initialized[section] && state.data) {
-          initSection(section);
+          // Use requestAnimationFrame for smoother initialization
+          requestAnimationFrame(() => initSection(section));
         }
+
+        // Reset scroll position and progress bar
+        sectionEl.scrollTop = 0;
+        updateScrollProgress(section, 0);
+      });
+    });
+
+    // ========================================
+    // Scroll Progress Tracking
+    // ========================================
+    function updateScrollProgress(sectionId, progress) {
+      const tab = document.querySelector(`.tab[data-section="${sectionId}"]`);
+      if (tab) {
+        const progressBar = tab.querySelector('.progress-bar');
+        if (progressBar) {
+          progressBar.style.width = `${progress * 100}%`;
+        }
+      }
+    }
+
+    // Add scroll listeners to all sections
+    document.querySelectorAll('.section').forEach(section => {
+      section.addEventListener('scroll', () => {
+        const scrollTop = section.scrollTop;
+        const scrollHeight = section.scrollHeight - section.clientHeight;
+        const progress = scrollHeight > 0 ? scrollTop / scrollHeight : 0;
+        updateScrollProgress(section.id, progress);
       });
     });
 
