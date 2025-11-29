@@ -741,6 +741,50 @@
           <div class="loading">Loading</div>
         </div>
       </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Title Keywords</div>
+            <div class="chart-subtitle">Common words weighted by sales</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-wordcloud">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Sales Distribution</div>
+            <div class="chart-subtitle">Power law of game success</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-histogram">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Success Milestones</div>
+            <div class="chart-subtitle">Games by sales threshold</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-dotmatrix">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Top 50 Leaderboard</div>
+            <div class="chart-subtitle">Interactive ranking table</div>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-ranktable">
+          <div class="loading">Loading</div>
+        </div>
+      </div>
     </section>
 
     <!-- Section 5: Franchise Analysis -->
@@ -4012,6 +4056,10 @@
       createSpiral();
       createWaterfall();
       createExplorer();
+      createWordCloud();
+      createHistogram();
+      createDotMatrix();
+      createRankTable();
     }
 
     function createCirclePacking() {
@@ -4450,6 +4498,380 @@
       document.getElementById('yAxis').addEventListener('change', updateChart);
 
       updateChart();
+    }
+
+    function createWordCloud() {
+      const container = document.getElementById('chart-wordcloud');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height / 2})`);
+
+      // Extract words from game titles and weight by sales
+      const wordCounts = {};
+      const stopWords = new Set(['the', 'of', 'and', 'a', 'to', 'in', 'for', 'on', 'with', 'at', 'by', 'an', 'be', 'this', 'from', 'or', 'as', 'is', 'it', 'vs', 'vs.', '-', '&', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'ii', 'iii', 'iv', 'v', 'vi']);
+
+      state.data.forEach(d => {
+        const words = d.name.toLowerCase()
+          .replace(/[^a-z0-9\s]/g, '')
+          .split(/\s+/)
+          .filter(w => w.length > 2 && !stopWords.has(w));
+
+        words.forEach(word => {
+          if (!wordCounts[word]) wordCounts[word] = { count: 0, sales: 0 };
+          wordCounts[word].count++;
+          wordCounts[word].sales += d.globalSales;
+        });
+      });
+
+      // Get top words by sales
+      const topWords = Object.entries(wordCounts)
+        .map(([text, data]) => ({ text, count: data.count, sales: data.sales }))
+        .filter(d => d.count >= 5)
+        .sort((a, b) => b.sales - a.sales)
+        .slice(0, 60);
+
+      const maxSales = d3.max(topWords, d => d.sales);
+      const sizeScale = d3.scaleSqrt()
+        .domain([0, maxSales])
+        .range([10, 40]);
+
+      const colorScale = d3.scaleOrdinal()
+        .range([colors.lime, colors.cyan, colors.amber, colors.coral, colors.emerald]);
+
+      // Simple spiral layout
+      const angleStep = 0.5;
+      const radiusStep = 0.8;
+      let angle = 0;
+      let radius = 0;
+
+      topWords.forEach((word, i) => {
+        const fontSize = sizeScale(word.sales);
+        angle += angleStep + Math.random() * 0.3;
+        radius += radiusStep;
+
+        const x = Math.cos(angle) * radius * 2.5;
+        const y = Math.sin(angle) * radius * 1.5;
+
+        g.append('text')
+          .attr('x', x)
+          .attr('y', y)
+          .attr('text-anchor', 'middle')
+          .attr('dominant-baseline', 'middle')
+          .attr('font-size', fontSize + 'px')
+          .attr('fill', colorScale(i % 5))
+          .attr('opacity', 0.8)
+          .attr('font-weight', fontSize > 25 ? '700' : '400')
+          .text(word.text);
+      });
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 20})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Word size = total sales of games containing that word');
+    }
+
+    function createHistogram() {
+      const container = document.getElementById('chart-histogram');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 30, right: 30, bottom: 60, left: 60 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Use log scale for sales distribution
+      const sales = state.data.map(d => d.globalSales).filter(s => s > 0);
+
+      // Create logarithmic bins
+      const logScale = d3.scaleLog()
+        .domain([0.01, d3.max(sales)])
+        .range([0, innerWidth]);
+
+      const bins = d3.bin()
+        .domain([0.01, d3.max(sales)])
+        .thresholds([0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 50, 100])
+        (sales);
+
+      const x = d3.scaleLog()
+        .domain([0.01, 100])
+        .range([0, innerWidth]);
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(bins, d => d.length)])
+        .range([innerHeight, 0]);
+
+      // Draw bars
+      g.selectAll('.bar')
+        .data(bins)
+        .join('rect')
+        .attr('class', 'bar')
+        .attr('x', d => x(d.x0 || 0.01) + 1)
+        .attr('width', d => Math.max(0, x(d.x1 || d.x0 * 2) - x(d.x0 || 0.01) - 2))
+        .attr('y', d => y(d.length))
+        .attr('height', d => innerHeight - y(d.length))
+        .attr('fill', (d, i) => i < 4 ? colors.textTertiary : i < 7 ? colors.cyan : i < 9 ? colors.lime : colors.amber)
+        .attr('opacity', 0.8);
+
+      // X axis
+      g.append('g')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(x).tickValues([0.01, 0.1, 1, 10, 100]).tickFormat(d => d < 1 ? d.toFixed(2) : d + 'M'))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      g.selectAll('.domain, .tick line').attr('stroke', colors.border);
+
+      // Y axis
+      g.append('g')
+        .call(d3.axisLeft(y).ticks(6))
+        .selectAll('text')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '10px');
+
+      // Axis labels
+      g.append('text')
+        .attr('x', innerWidth / 2)
+        .attr('y', innerHeight + 40)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '11px')
+        .text('Global Sales (millions, log scale)');
+
+      g.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -innerHeight / 2)
+        .attr('y', -45)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textSecondary)
+        .attr('font-size', '11px')
+        .text('Number of Games');
+
+      // Legend
+      const legend = svg.append('g')
+        .attr('transform', `translate(${width / 2},${height - 15})`);
+
+      legend.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textTertiary)
+        .attr('font-size', '10px')
+        .text('Most games sell < 1M copies (power law distribution)');
+    }
+
+    function createDotMatrix() {
+      const container = document.getElementById('chart-dotmatrix');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+      const margin = { top: 40, right: 20, bottom: 50, left: 80 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Define milestones
+      const milestones = [
+        { threshold: 10, label: '10M+ Club', color: colors.amber },
+        { threshold: 5, label: '5M+ Hits', color: colors.lime },
+        { threshold: 2, label: '2M+ Success', color: colors.cyan },
+        { threshold: 1, label: '1M+ Sellers', color: colors.coral }
+      ];
+
+      // Count games at each milestone
+      milestones.forEach(m => {
+        m.games = state.data.filter(d => d.globalSales >= m.threshold);
+        m.count = m.games.length;
+      });
+
+      const maxCount = d3.max(milestones, d => d.count);
+      const dotsPerRow = Math.floor(innerWidth / 8);
+
+      milestones.forEach((milestone, mIdx) => {
+        const rowHeight = innerHeight / milestones.length;
+        const yOffset = mIdx * rowHeight;
+
+        // Label
+        g.append('text')
+          .attr('x', -10)
+          .attr('y', yOffset + rowHeight / 2)
+          .attr('text-anchor', 'end')
+          .attr('dominant-baseline', 'middle')
+          .attr('fill', milestone.color)
+          .attr('font-size', '11px')
+          .attr('font-weight', '600')
+          .text(milestone.label);
+
+        // Count
+        g.append('text')
+          .attr('x', -10)
+          .attr('y', yOffset + rowHeight / 2 + 14)
+          .attr('text-anchor', 'end')
+          .attr('dominant-baseline', 'middle')
+          .attr('fill', colors.textTertiary)
+          .attr('font-size', '10px')
+          .text(`(${milestone.count} games)`);
+
+        // Draw dots (limit to 100 for performance)
+        const displayCount = Math.min(milestone.count, 150);
+        for (let i = 0; i < displayCount; i++) {
+          const row = Math.floor(i / dotsPerRow);
+          const col = i % dotsPerRow;
+
+          g.append('circle')
+            .attr('cx', col * 8 + 4)
+            .attr('cy', yOffset + 10 + row * 8)
+            .attr('r', 3)
+            .attr('fill', milestone.color)
+            .attr('opacity', 0.7);
+        }
+
+        // Show "..." if truncated
+        if (milestone.count > 150) {
+          g.append('text')
+            .attr('x', innerWidth - 20)
+            .attr('y', yOffset + rowHeight / 2)
+            .attr('fill', colors.textTertiary)
+            .attr('font-size', '12px')
+            .text('...');
+        }
+      });
+
+      // Title
+      g.append('text')
+        .attr('x', innerWidth / 2)
+        .attr('y', -20)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textPrimary)
+        .attr('font-size', '11px')
+        .text('Each dot = 1 game reaching that milestone');
+    }
+
+    function createRankTable() {
+      const container = document.getElementById('chart-ranktable');
+      container.innerHTML = '';
+
+      const rect = container.getBoundingClientRect();
+
+      // Create scrollable table container
+      const tableWrapper = document.createElement('div');
+      tableWrapper.style.cssText = `
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+        font-size: 10px;
+      `;
+
+      const table = document.createElement('table');
+      table.style.cssText = `
+        width: 100%;
+        border-collapse: collapse;
+        color: ${colors.textSecondary};
+      `;
+
+      // Header
+      const thead = document.createElement('thead');
+      thead.innerHTML = `
+        <tr style="background: ${colors.bgAccent}; position: sticky; top: 0;">
+          <th style="padding: 8px 4px; text-align: left; border-bottom: 1px solid ${colors.border}; width: 30px;">#</th>
+          <th style="padding: 8px 4px; text-align: left; border-bottom: 1px solid ${colors.border};">Game</th>
+          <th style="padding: 8px 4px; text-align: right; border-bottom: 1px solid ${colors.border}; width: 50px;">Sales</th>
+          <th style="padding: 8px 4px; text-align: center; border-bottom: 1px solid ${colors.border}; width: 80px;">Regional</th>
+        </tr>
+      `;
+      table.appendChild(thead);
+
+      // Body
+      const tbody = document.createElement('tbody');
+      const top50 = state.data
+        .sort((a, b) => b.globalSales - a.globalSales)
+        .slice(0, 50);
+
+      const maxSales = top50[0].globalSales;
+
+      top50.forEach((game, i) => {
+        const naPercent = (game.naSales / game.globalSales * 100) || 0;
+        const euPercent = (game.euSales / game.globalSales * 100) || 0;
+        const jpPercent = (game.jpSales / game.globalSales * 100) || 0;
+        const otherPercent = 100 - naPercent - euPercent - jpPercent;
+
+        const row = document.createElement('tr');
+        row.style.cssText = `border-bottom: 1px solid ${colors.border}20;`;
+        row.innerHTML = `
+          <td style="padding: 6px 4px; color: ${colors.textTertiary};">${i + 1}</td>
+          <td style="padding: 6px 4px;">
+            <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;" title="${game.name}">
+              ${game.name}
+            </div>
+            <div style="color: ${colors.textTertiary}; font-size: 9px;">${game.platform} • ${game.year || 'N/A'}</div>
+          </td>
+          <td style="padding: 6px 4px; text-align: right; color: ${colors.lime}; font-weight: 600;">${game.globalSales.toFixed(1)}M</td>
+          <td style="padding: 6px 4px;">
+            <div style="display: flex; height: 10px; border-radius: 2px; overflow: hidden;">
+              <div style="width: ${naPercent}%; background: ${colors.lime};"></div>
+              <div style="width: ${euPercent}%; background: ${colors.cyan};"></div>
+              <div style="width: ${jpPercent}%; background: ${colors.coral};"></div>
+              <div style="width: ${otherPercent}%; background: ${colors.amber};"></div>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      table.appendChild(tbody);
+      tableWrapper.appendChild(table);
+      container.appendChild(tableWrapper);
+
+      // Legend below table
+      const legend = document.createElement('div');
+      legend.style.cssText = `
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+        padding: 8px;
+        font-size: 9px;
+        color: ${colors.textTertiary};
+        border-top: 1px solid ${colors.border};
+      `;
+      legend.innerHTML = `
+        <span><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${colors.lime}; margin-right: 4px;"></span>NA</span>
+        <span><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${colors.cyan}; margin-right: 4px;"></span>EU</span>
+        <span><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${colors.coral}; margin-right: 4px;"></span>JP</span>
+        <span><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${colors.amber}; margin-right: 4px;"></span>Other</span>
+      `;
+      container.appendChild(legend);
     }
 
     // ========================================
